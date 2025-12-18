@@ -1,0 +1,14 @@
+export:
+  directory: /app/exports
+
+doctor:
+  service:
+    url: ${DOCTOR_SERVICE_URL:http://doctor-service:8080}
+
+patient:
+  service:
+    url: ${PATIENT_SERVICE_URL:http://patient-service:8080}
+
+appointment:
+  service:
+    url: ${APPOINTMENT_SERVICE_URL:http://appointment-service:8080}

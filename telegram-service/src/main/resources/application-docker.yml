@@ -1,0 +1,3 @@
+appointment:
+  service:
+    url: ${APPOINTMENT_SERVICE_URL:http://appointment-service:8080}
