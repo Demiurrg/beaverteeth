@@ -1,0 +1,140 @@
+services:
+  # База данных PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: clinic-postgres
+    environment:
+      POSTGRES_DB: clinic_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1234
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - clinic-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Сервис врачей
+  doctor-service:
+    build:
+      context: .
+      dockerfile: doctor-service/Dockerfile
+    container_name: doctor-service
+    ports:
+      - "8081:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/clinic_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: 1234
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - clinic-network
+
+  # Сервис пациентов
+  patient-service:
+    build:
+      context: .
+      dockerfile: patient-service/Dockerfile
+    container_name: patient-service
+    ports:
+      - "8082:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/clinic_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: 1234
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - clinic-network
+
+  # Сервис записей
+  appointment-service:
+    build:
+      context: .
+      dockerfile: appointment-service/Dockerfile
+    container_name: appointment-service
+    ports:
+      - "8083:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/clinic_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: 1234
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      DOCTOR_SERVICE_URL: http://doctor-service:8080
+      PATIENT_SERVICE_URL: http://patient-service:8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+      doctor-service:
+        condition: service_started
+      patient-service:
+        condition: service_started
+    networks:
+      - clinic-network
+
+  # Сервис экспорта
+  export-service:
+    build:
+      context: .
+      dockerfile: export-service/Dockerfile
+    container_name: export-service
+    ports:
+      - "8084:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/clinic_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: 1234
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      DOCTOR_SERVICE_URL: http://doctor-service:8080
+      PATIENT_SERVICE_URL: http://patient-service:8080
+      APPOINTMENT_SERVICE_URL: http://appointment-service:8080
+    volumes:
+      - export_data:/app/exports
+    depends_on:
+      postgres:
+        condition: service_healthy
+      doctor-service:
+        condition: service_started
+      patient-service:
+        condition: service_started
+      appointment-service:
+        condition: service_started
+    networks:
+      - clinic-network
+
+  # Сервис телеграм бота
+  telegram-service:
+    build:
+      context: .
+      dockerfile: telegram-service/Dockerfile
+    container_name: telegram-service
+    ports:
+      - "8085:8080"
+    environment:
+      APPOINTMENT_SERVICE_URL: http://appointment-service:8080
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+    depends_on:
+      appointment-service:
+        condition: service_started
+    networks:
+      - clinic-network
+
+
+volumes:
+  postgres_data:
+  export_data:
+
+networks:
+  clinic-network:
+    driver: bridge

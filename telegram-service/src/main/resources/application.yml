@@ -1,0 +1,30 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: telegram-service
+
+telegram:
+  bot:
+    username: beaver_teeth_bot
+    token: 8551413635:AAE__Em1JBtGHSCfv_dhq9RMjjW-lRY-eoY
+
+appointment:
+  service:
+    url: http://localhost:8080
+
+doctor:
+  service:
+    url: http://localhost:8081
+
+patient:
+  service:
+    url: http://localhost:8082
+
+logging:
+  level:
+    com.beaverteeth.telegram: DEBUG
+    org.telegram.telegrambots: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
