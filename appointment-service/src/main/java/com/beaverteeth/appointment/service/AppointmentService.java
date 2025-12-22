@@ -25,16 +25,20 @@ public class AppointmentService {
 
     private final AppointmentRepository appointmentRepository;
     private final TimeSlotService timeSlotService;
+    private final AuditService auditService;
+
     private static final int APPOINTMENT_DURATION_HOURS = 2;
 
     public AppointmentDTO createAppointment(CreateAppointmentRequest request) {
-        // Проверяем, что врач и пациент существуют
+        String createdBy = "system"; // Временное значение, нужно реализовать получение
+
+        // Проверяем существование врача и пациента
         timeSlotService.validateDoctorExists(request.getDoctorId());
         timeSlotService.validatePatientExists(request.getPatientId());
 
         LocalDateTime endTime = request.getStartTime().plusHours(APPOINTMENT_DURATION_HOURS);
 
-        // Проверяем доступность времени - ДОЛЖНА ИСПОЛЬЗОВАТЬ ИСПРАВЛЕННЫЙ МЕТОД
+        // Проверяем доступность времени
         List<Appointment> conflictingAppointments = appointmentRepository
                 .findConflictingAppointments(
                         request.getDoctorId(),
@@ -59,13 +63,99 @@ public class AppointmentService {
                 .notes(request.getNotes())
                 .build();
 
+        appointment.setCreatedBy(createdBy);
+        appointment.setLastModifiedBy(createdBy);
+
         Appointment savedAppointment = appointmentRepository.save(appointment);
         log.info("Создана запись на прием: врач={}, пациент={}, время={}",
                 request.getDoctorId(), request.getPatientId(), request.getStartTime());
 
+        // ЗАПИСЬ В ЖУРНАЛ
+        auditService.logAppointmentCreation(savedAppointment, createdBy);
+
         return convertToDTO(savedAppointment);
     }
 
+    public void cancelAppointment(Long id) {
+        Appointment appointment = appointmentRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Запись не найдена с ID: " + id));
+
+        String oldStatus = appointment.getStatus().name();
+        appointment.setStatus(AppointmentStatus.CANCELLED);
+        appointment.setLastModifiedBy("system"); // Нужно получить из запроса
+
+        appointmentRepository.save(appointment);
+        log.info("Запись отменена: ID={}", id);
+
+        // ЗАПИСЬ В ЖУРНАЛ
+        auditService.logStatusChange(appointment, oldStatus, "CANCELLED", "system");
+    }
+
+    public void completeAppointment(Long id) {
+        Appointment appointment = appointmentRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Запись не найдена с ID: " + id));
+
+        String oldStatus = appointment.getStatus().name();
+        appointment.setStatus(AppointmentStatus.COMPLETED);
+        appointment.setLastModifiedBy("system"); // Нужно получить из запроса
+
+        appointmentRepository.save(appointment);
+        log.info("Запись завершена: ID={}", id);
+
+        // ЗАПИСЬ В ЖУРНАЛ
+        auditService.logStatusChange(appointment, oldStatus, "COMPLETED", "system");
+    }
+
+    // ДОБАВИТЬ метод для изменения времени записи
+    public AppointmentDTO rescheduleAppointment(Long id, LocalDateTime newStartTime, String modifiedBy) {
+        Appointment appointment = appointmentRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Запись не найдена с ID: " + id));
+
+        LocalDateTime newEndTime = newStartTime.plusHours(APPOINTMENT_DURATION_HOURS);
+
+        // Проверяем доступность нового времени
+        List<Appointment> conflictingAppointments = appointmentRepository
+                .findConflictingAppointments(
+                        appointment.getDoctorId(),
+                        newStartTime,
+                        newEndTime
+                )
+                .stream()
+                .filter(a -> !a.getId().equals(id)) // исключаем текущую запись
+                .collect(Collectors.toList());
+
+        if (!conflictingAppointments.isEmpty()) {
+            throw new IllegalArgumentException("Новое время уже занято");
+        }
+
+        // Сохраняем старое время для аудита
+        LocalDateTime oldStartTime = appointment.getStartTime();
+        LocalDateTime oldEndTime = appointment.getEndTime();
+
+        appointment.setStartTime(newStartTime);
+        appointment.setEndTime(newEndTime);
+        appointment.setLastModifiedBy(modifiedBy);
+
+        Appointment updatedAppointment = appointmentRepository.save(appointment);
+
+        // ЗАПИСЬ В ЖУРНАЛ для переноса
+        String doctorName = timeSlotService.getDoctorName(appointment.getDoctorId());
+        String patientName = timeSlotService.getPatientName(appointment.getPatientId());
+
+        String description = String.format(
+                "Перенос записи: врач %s, пациент %s. Было: %s - %s, Стало: %s - %s",
+                doctorName, patientName, oldStartTime, oldEndTime, newStartTime, newEndTime
+        );
+
+        auditService.logAppointmentChange(
+                id, "RESCHEDULE", modifiedBy, description,
+                appointment.getStatus().name(), appointment.getStatus().name()
+        );
+
+        return convertToDTO(updatedAppointment);
+    }
+
+    // Остальные методы остаются БЕЗ изменений или с минимальными правками
     public AppointmentDTO getAppointmentById(Long id) {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Запись не найдена с ID: " + id));
@@ -93,24 +183,6 @@ public class AppointmentService {
                 .collect(Collectors.toList());
     }
 
-    public void cancelAppointment(Long id) {
-        Appointment appointment = appointmentRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Запись не найдена с ID: " + id));
-
-        appointment.setStatus(AppointmentStatus.CANCELLED);
-        appointmentRepository.save(appointment);
-        log.info("Запись отменена: ID={}", id);
-    }
-
-    public void completeAppointment(Long id) {
-        Appointment appointment = appointmentRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Запись не найдена с ID: " + id));
-
-        appointment.setStatus(AppointmentStatus.COMPLETED);
-        appointmentRepository.save(appointment);
-        log.info("Запись завершена: ID={}", id);
-    }
-
     public List<AppointmentDTO> getUpcomingAppointmentsForPatient(Long patientId) {
         LocalDateTime now = LocalDateTime.now();
 
@@ -135,7 +207,7 @@ public class AppointmentService {
                 .status(appointment.getStatus())
                 .notes(appointment.getNotes())
                 .createdAt(appointment.getCreatedAt())
-                .updatedAt(appointment.getUpdatedAt())
+                .lastModifiedAt(appointment.getLastModifiedAt())
                 .build();
 
         // Получаем дополнительную информацию
