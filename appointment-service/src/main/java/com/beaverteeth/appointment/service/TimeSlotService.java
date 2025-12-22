@@ -36,6 +36,18 @@ public class TimeSlotService {
     private static final int WORKING_HOUR_END = 18;
     private static final int APPOINTMENT_DURATION_HOURS = 2;
 
+    boolean isDoctorOnVacation(Long doctorId, LocalDate date) {
+        try {
+            String url = doctorServiceUrl + "/api/vacations/doctor/" + doctorId + "/check?date=" + date;
+            ResponseEntity<Boolean> response = restTemplate.getForEntity(url, Boolean.class);
+            return Boolean.TRUE.equals(response.getBody());
+        } catch (Exception e) {
+            log.warn("Не удалось проверить отпуск врача {} на дату {}: {}",
+                    doctorId, date, e.getMessage());
+            return false; // Если сервис недоступен, считаем что врач не в отпуске
+        }
+    }
+
     public List<TimeSlotDTO> getAvailableTimeSlots(TimeSlotRequest request) {
         // Ищем врача по фамилии
         Long doctorId = findDoctorIdByLastName(request.getDoctorLastName());
@@ -44,11 +56,17 @@ public class TimeSlotService {
             return List.of();
         }
 
+        // ПРОВЕРКА ОТПУСКА - ДОБАВИТЬ ЭТУ ПРОВЕРКУ
+        if (isDoctorOnVacation(doctorId, request.getDate())) {
+            log.info("Врач {} в отпуске на дату {}", doctorId, request.getDate());
+            return List.of(); // Возвращаем пустой список слотов
+        }
+
         // Получаем все записи врача на указанную дату
         LocalDateTime startOfDay = request.getDate().atStartOfDay();
         LocalDateTime endOfDay = request.getDate().atTime(LocalTime.MAX);
 
-        List<com.beaverteeth.appointment.model.Appointment> appointments =
+        List<Appointment> appointments =
                 appointmentRepository.findByDoctorIdAndDateRange(doctorId, startOfDay, endOfDay);
 
         // Генерируем все возможные слоты времени
