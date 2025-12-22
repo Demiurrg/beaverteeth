@@ -27,35 +27,112 @@ public class PatientService {
     public PatientDTO createPatient(CreatePatientRequest request) {
         log.info("Создание пациента: {}", request.getFullName());
 
-        // Проверка уникальности телефона
+        // Проверки уникальности...
         if (patientRepository.existsByPhone(request.getPhone())) {
             throw new IllegalArgumentException("Пациент с таким телефоном уже существует");
         }
 
-        // Проверка уникальности email (если указан)
         if (request.getEmail() != null && !request.getEmail().isBlank()
                 && patientRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("Пациент с таким email уже существует");
         }
 
-        // Проверка уникальности Telegram username (если указан)
         if (request.getTelegramUsername() != null && !request.getTelegramUsername().isBlank()
                 && patientRepository.existsByTelegramUsername(request.getTelegramUsername())) {
             throw new IllegalArgumentException("Пациент с таким Telegram username уже существует");
         }
 
         Patient patient = modelMapper.map(request, Patient.class);
-
-        // Устанавливаем автора создания
-        patient.setCreatedBy(request.getCreatedBy());
         patient.setLastModifiedBy(request.getCreatedBy());
 
         Patient savedPatient = patientRepository.save(patient);
-        auditService.logPatientChange(savedPatient, "CREATE");
+
+        // ЗАПИСЬ В ЖУРНАЛ
+        auditService.logPatientChange(savedPatient.getId(), "CREATE",
+                request.getCreatedBy(),
+                "Создан новый пациент: " + savedPatient.getFullName() +
+                        " (тел.: " + savedPatient.getPhone() + ")");
 
         return convertToDTO(savedPatient);
     }
 
+    public PatientDTO updatePatient(Long id, PatientDTO patientDTO, String modifiedBy) {
+        Patient existingPatient = patientRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Пациент не найден с ID: " + id));
+
+        // Проверки уникальности...
+        if (!existingPatient.getPhone().equals(patientDTO.getPhone())
+                && patientRepository.existsByPhone(patientDTO.getPhone())) {
+            throw new IllegalArgumentException("Пациент с таким телефоном уже существует");
+        }
+
+        if (patientDTO.getEmail() != null
+                && !patientDTO.getEmail().equals(existingPatient.getEmail())
+                && patientRepository.existsByEmail(patientDTO.getEmail())) {
+            throw new IllegalArgumentException("Пациент с таким email уже существует");
+        }
+
+        if (patientDTO.getTelegramUsername() != null
+                && !patientDTO.getTelegramUsername().equals(existingPatient.getTelegramUsername())
+                && patientRepository.existsByTelegramUsername(patientDTO.getTelegramUsername())) {
+            throw new IllegalArgumentException("Пациент с таким Telegram username уже существует");
+        }
+
+        // Определяем измененные поля для описания
+        StringBuilder changesDescription = new StringBuilder("Обновлены данные пациента");
+        boolean hasChanges = false;
+
+        if (!existingPatient.getFullName().equals(patientDTO.getFullName())) {
+            changesDescription.append(", ФИО");
+            hasChanges = true;
+        }
+        if (!existingPatient.getPhone().equals(patientDTO.getPhone())) {
+            changesDescription.append(", телефон");
+            hasChanges = true;
+        }
+        if (patientDTO.getEmail() != null && !patientDTO.getEmail().equals(existingPatient.getEmail())) {
+            changesDescription.append(", email");
+            hasChanges = true;
+        }
+        if (patientDTO.getAge() != null && !patientDTO.getAge().equals(existingPatient.getAge())) {
+            changesDescription.append(", возраст");
+            hasChanges = true;
+        }
+        // ... можно добавить проверку других полей
+
+        if (!hasChanges) {
+            changesDescription.append(" (без изменений данных)");
+        }
+
+        // Обновляем поля
+        modelMapper.map(patientDTO, existingPatient);
+        existingPatient.setId(id);
+        existingPatient.setLastModifiedBy(modifiedBy);
+
+        Patient updatedPatient = patientRepository.save(existingPatient);
+
+        // ЗАПИСЬ В ЖУРНАЛ
+        auditService.logPatientChange(id, "UPDATE", modifiedBy, changesDescription.toString());
+
+        return convertToDTO(updatedPatient);
+    }
+
+    public void deletePatient(Long id, String modifiedBy) {
+        Patient patient = patientRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Пациент не найден с ID: " + id));
+
+        patient.setIsActive(false);
+        patient.setLastModifiedBy(modifiedBy);
+
+        patientRepository.save(patient);
+
+        // ЗАПИСЬ В ЖУРНАЛ
+        auditService.logPatientChange(id, "DELETE", modifiedBy,
+                "Пациент отключен: " + patient.getFullName() +
+                        " (тел.: " + patient.getPhone() + ")");
+    }
+
+    // Остальные методы остаются БЕЗ ИЗМЕНЕНИЙ:
     public PatientDTO getPatientById(Long id) {
         Patient patient = patientRepository.findByIdAndIsActiveTrue(id)
                 .orElseThrow(() -> new EntityNotFoundException("Пациент не найден с ID: " + id));
@@ -95,57 +172,6 @@ public class PatientService {
                 .filter(Patient::getIsActive)
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
-    }
-
-    public PatientDTO updatePatient(Long id, PatientDTO patientDTO, String modifiedBy) {
-        Patient existingPatient = patientRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Пациент не найден с ID: " + id));
-
-        // Сохраняем старую версию для аудита
-        Patient oldPatient = new Patient();
-        modelMapper.map(existingPatient, oldPatient);
-
-        // Проверка уникальности телефона (если изменился)
-        if (!existingPatient.getPhone().equals(patientDTO.getPhone())
-                && patientRepository.existsByPhone(patientDTO.getPhone())) {
-            throw new IllegalArgumentException("Пациент с таким телефоном уже существует");
-        }
-
-        // Проверка уникальности email (если изменился)
-        if (patientDTO.getEmail() != null
-                && !patientDTO.getEmail().equals(existingPatient.getEmail())
-                && patientRepository.existsByEmail(patientDTO.getEmail())) {
-            throw new IllegalArgumentException("Пациент с таким email уже существует");
-        }
-
-        // Проверка уникальности Telegram username (если изменился)
-        if (patientDTO.getTelegramUsername() != null
-                && !patientDTO.getTelegramUsername().equals(existingPatient.getTelegramUsername())
-                && patientRepository.existsByTelegramUsername(patientDTO.getTelegramUsername())) {
-            throw new IllegalArgumentException("Пациент с таким Telegram username уже существует");
-        }
-
-        // Обновляем поля
-        modelMapper.map(patientDTO, existingPatient);
-        existingPatient.setId(id); // чтобы не перезаписалось
-        existingPatient.setLastModifiedBy(modifiedBy);
-
-        Patient updatedPatient = patientRepository.save(existingPatient);
-        auditService.logPatientChange(oldPatient, "UPDATE");
-
-        return convertToDTO(updatedPatient);
-    }
-
-    public void deletePatient(Long id, String modifiedBy) {
-        Patient patient = patientRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Пациент не найден с ID: " + id));
-
-        // Мягкое удаление
-        patient.setIsActive(false);
-        patient.setLastModifiedBy(modifiedBy);
-
-        patientRepository.save(patient);
-        auditService.logPatientChange(patient, "DELETE");
     }
 
     public PatientDTO convertToDTO(Patient patient) {
