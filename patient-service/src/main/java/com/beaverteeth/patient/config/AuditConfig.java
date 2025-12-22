@@ -6,6 +6,6 @@ import org.springframework.scheduling.annotation.EnableAsync; // Добавит�
 
 @Configuration
 @EnableJpaAuditing
-@EnableAsync // Добавить эту аннотацию
+@EnableAsync
 public class AuditConfig {
 }
