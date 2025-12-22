@@ -25,13 +25,15 @@ public class DoctorService {
 
     public DoctorDTO createDoctor(CreateDoctorRequest request) {
         Doctor doctor = modelMapper.map(request, Doctor.class);
-
-        // Устанавливаем автора создания
-        doctor.setCreatedBy(request.getCreatedBy());
+        doctor.setIsActive(true);
         doctor.setLastModifiedBy(request.getCreatedBy());
 
         Doctor savedDoctor = doctorRepository.save(doctor);
-        auditService.logDoctorChange(savedDoctor, "CREATE");
+
+        // Запись в журнал
+        auditService.logDoctorChange(savedDoctor.getId(), "CREATE",
+                request.getCreatedBy(),
+                "Создан новый врач: " + savedDoctor.getFullName());
 
         return convertToDTO(savedDoctor);
     }
@@ -70,33 +72,45 @@ public class DoctorService {
 
     public DoctorDTO updateDoctor(Long id, DoctorDTO doctorDTO, String modifiedBy) {
         Doctor existingDoctor = doctorRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Врач не найден с ID: " + id));
+                .orElseThrow(() -> new EntityNotFoundException("Врач не найден"));
 
-        // Сохраняем старую версию для аудита
-        Doctor oldDoctor = new Doctor();
-        modelMapper.map(existingDoctor, oldDoctor);
+        // Простое описание изменений
+        String changesDescription = "Обновлены данные врача";
+
+        // Можно добавить логику определения измененных полей:
+        if (!existingDoctor.getFullName().equals(doctorDTO.getFullName())) {
+            changesDescription += ", ФИО";
+        }
+        if (!existingDoctor.getSpecialty().equals(doctorDTO.getSpecialty())) {
+            changesDescription += ", специализация";
+        }
+        // ... другие поля
 
         // Обновляем поля
         modelMapper.map(doctorDTO, existingDoctor);
-        existingDoctor.setId(id); // чтобы не перезаписалось
+        existingDoctor.setId(id);
         existingDoctor.setLastModifiedBy(modifiedBy);
 
         Doctor updatedDoctor = doctorRepository.save(existingDoctor);
-        auditService.logDoctorChange(oldDoctor, "UPDATE");
+
+        // Запись в журнал
+        auditService.logDoctorChange(id, "UPDATE", modifiedBy, changesDescription);
 
         return convertToDTO(updatedDoctor);
     }
 
     public void deleteDoctor(Long id, String modifiedBy) {
         Doctor doctor = doctorRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Врач не найден с ID: " + id));
+                .orElseThrow(() -> new EntityNotFoundException("Врач не найден"));
 
-        // Мягкое удаление
         doctor.setIsActive(false);
         doctor.setLastModifiedBy(modifiedBy);
 
         doctorRepository.save(doctor);
-        auditService.logDoctorChange(doctor, "DELETE");
+
+        // Запись в журнал
+        auditService.logDoctorChange(id, "DELETE", modifiedBy,
+                "Врач отключен: " + doctor.getFullName());
     }
 
     public DoctorDTO convertToDTO(Doctor doctor) {
