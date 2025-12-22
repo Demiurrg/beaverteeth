@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 8083
 
 spring:
   application:
@@ -15,15 +15,15 @@ export:
 
 doctor:
   service:
-    url: http://doctor-service:8080
+    url: http://localhost:8081
 
 patient:
   service:
-    url: http://patient-service:8080
+    url: http://localhost:8082
 
 appointment:
   service:
-    url: http://appointment-service:8080
+    url: http://localhost:8080
 
 logging:
   level:

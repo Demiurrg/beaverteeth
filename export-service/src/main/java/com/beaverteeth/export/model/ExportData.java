@@ -12,7 +12,7 @@ import java.util.List;
 @Builder
 public class ExportData {
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @JsonFormat(shape = JsonFormat.Shape.STRING)
     private LocalDateTime exportDate;
 
     private List<DoctorData> doctors;
@@ -34,12 +34,12 @@ public class ExportData {
         private Boolean isActive;
         private String createdBy;
 
-        @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+        @JsonFormat(shape = JsonFormat.Shape.STRING)
         private LocalDateTime createdAt;
 
         private String lastModifiedBy;
 
-        @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+        @JsonFormat(shape = JsonFormat.Shape.STRING)
         private LocalDateTime lastModifiedAt;
     }
 
@@ -58,12 +58,12 @@ public class ExportData {
         private String notes;
         private String createdBy;
 
-        @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+        @JsonFormat(shape = JsonFormat.Shape.STRING)
         private LocalDateTime createdAt;
 
         private String lastModifiedBy;
 
-        @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+        @JsonFormat(shape = JsonFormat.Shape.STRING)
         private LocalDateTime lastModifiedAt;
     }
 
@@ -76,19 +76,19 @@ public class ExportData {
         private Long doctorId;
         private Long patientId;
 
-        @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+        @JsonFormat(shape = JsonFormat.Shape.STRING)
         private LocalDateTime startTime;
 
-        @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+        @JsonFormat(shape = JsonFormat.Shape.STRING)
         private LocalDateTime endTime;
 
         private String status;
         private String notes;
 
-        @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+        @JsonFormat(shape = JsonFormat.Shape.STRING)
         private LocalDateTime createdAt;
 
-        @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+        @JsonFormat(shape = JsonFormat.Shape.STRING)
         private LocalDateTime updatedAt;
     }
 }
