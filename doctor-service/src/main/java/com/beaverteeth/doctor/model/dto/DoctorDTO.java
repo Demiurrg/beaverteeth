@@ -33,7 +33,6 @@ public class DoctorDTO {
     private String lastModifiedBy;
     private LocalDateTime lastModifiedAt;
 
-    // Добавьте метод для получения specialty как строки
     @JsonGetter("specialty")
     public String getSpecialtyName() {
         return specialty != null ? specialty.toString() : null;
