@@ -1,7 +1,7 @@
 package com.beaverteeth.appointment.service;
 
 import com.beaverteeth.appointment.model.Appointment;
-import com.beaverteeth.appointment.model.dto.TimeSlotDTO;
+import com.beaverteeth.appointment.model.dto.TimeSlotDto;
 import com.beaverteeth.appointment.model.dto.TimeSlotRequest;
 import com.beaverteeth.appointment.repository.AppointmentRepository;
 import lombok.RequiredArgsConstructor;
@@ -68,7 +68,7 @@ public class TimeSlotService {
         return null;
     }
 
-    public List<TimeSlotDTO> getAvailableTimeSlots(TimeSlotRequest request) {
+    public List<TimeSlotDto> getAvailableTimeSlots(TimeSlotRequest request) {
         // Ищем врача по фамилии
         Long doctorId = findDoctorIdByLastName(request.getDoctorLastName());
 
@@ -89,12 +89,12 @@ public class TimeSlotService {
                 appointmentRepository.findByDoctorIdAndDateRange(doctorId, startOfDay, endOfDay);
 
         // Генерируем все возможные слоты времени
-        List<TimeSlotDTO> allSlots = generateTimeSlots(request.getDate(), doctorId);
+        List<TimeSlotDto> allSlots = generateTimeSlots(request.getDate(), doctorId);
 
         // Фильтруем занятые слоты
-        List<TimeSlotDTO> availableSlots = new ArrayList<>();
+        List<TimeSlotDto> availableSlots = new ArrayList<>();
 
-        for (TimeSlotDTO slot : allSlots) {
+        for (TimeSlotDto slot : allSlots) {
             boolean isAvailable = isTimeSlotAvailable(slot, appointments);
             if (isAvailable) {
                 availableSlots.add(slot);
@@ -104,8 +104,8 @@ public class TimeSlotService {
         return availableSlots;
     }
 
-    private List<TimeSlotDTO> generateTimeSlots(LocalDate date, Long doctorId) {
-        List<TimeSlotDTO> slots = new ArrayList<>();
+    private List<TimeSlotDto> generateTimeSlots(LocalDate date, Long doctorId) {
+        List<TimeSlotDto> slots = new ArrayList<>();
         String doctorName = getDoctorName(doctorId);
 
         // Генерируем слоты с 9:00 до 18:00 с интервалом 2 часа
@@ -117,7 +117,7 @@ public class TimeSlotService {
             if (endTime.getHour() <= WORKING_HOUR_END ||
                     (endTime.getHour() == WORKING_HOUR_END && endTime.getMinute() == 0)) {
 
-                TimeSlotDTO slot = TimeSlotDTO.builder()
+                TimeSlotDto slot = TimeSlotDto.builder()
                         .startTime(startTime)
                         .endTime(endTime)
                         .doctorId(doctorId)
@@ -131,7 +131,7 @@ public class TimeSlotService {
         return slots;
     }
 
-    private boolean isTimeSlotAvailable(TimeSlotDTO slot,
+    private boolean isTimeSlotAvailable(TimeSlotDto slot,
                                         List<com.beaverteeth.appointment.model.Appointment> appointments) {
 
         for (com.beaverteeth.appointment.model.Appointment appointment : appointments) {

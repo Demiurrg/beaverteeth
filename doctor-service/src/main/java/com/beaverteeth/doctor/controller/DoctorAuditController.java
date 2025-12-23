@@ -1,6 +1,6 @@
 package com.beaverteeth.doctor.controller;
 
-import com.beaverteeth.doctor.model.dto.DoctorAuditDTO;
+import com.beaverteeth.doctor.model.dto.DoctorAuditDto;
 import com.beaverteeth.doctor.service.AuditService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -23,11 +23,11 @@ public class DoctorAuditController {
 
     @GetMapping
     @Operation(summary = "Получить журнал изменений врача")
-    public ResponseEntity<List<DoctorAuditDTO>> getAuditHistory(@PathVariable Long doctorId) {
+    public ResponseEntity<List<DoctorAuditDto>> getAuditHistory(@PathVariable Long doctorId) {
         var auditLogs = auditService.getDoctorHistory(doctorId);
 
         var auditDTOs = auditLogs.stream()
-                .map(log -> modelMapper.map(log, DoctorAuditDTO.class))
+                .map(log -> modelMapper.map(log, DoctorAuditDto.class))
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(auditDTOs);
@@ -35,7 +35,7 @@ public class DoctorAuditController {
 
     @GetMapping("/actions/{action}")
     @Operation(summary = "Получить историю по типу действия")
-    public ResponseEntity<List<DoctorAuditDTO>> getAuditByAction(
+    public ResponseEntity<List<DoctorAuditDto>> getAuditByAction(
             @PathVariable Long doctorId,
             @PathVariable String action) {
 

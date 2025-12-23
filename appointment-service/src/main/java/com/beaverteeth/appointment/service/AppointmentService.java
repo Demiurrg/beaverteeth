@@ -3,7 +3,7 @@ package com.beaverteeth.appointment.service;
 import com.beaverteeth.appointment.model.Appointment;
 import com.beaverteeth.appointment.model.AppointmentStatus;
 import com.beaverteeth.appointment.model.dto.AppointmentConfirmationRequest;
-import com.beaverteeth.appointment.model.dto.AppointmentDTO;
+import com.beaverteeth.appointment.model.dto.AppointmentDto;
 import com.beaverteeth.appointment.model.dto.CreateAppointmentRequest;
 import com.beaverteeth.appointment.repository.AppointmentRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -31,7 +31,7 @@ public class AppointmentService {
 
     private static final int APPOINTMENT_DURATION_HOURS = 2;
 
-    public AppointmentDTO createAppointment(CreateAppointmentRequest request) {
+    public AppointmentDto createAppointment(CreateAppointmentRequest request) {
         String createdBy = "system";
 
         // Проверяем существование врача и пациента
@@ -90,7 +90,7 @@ public class AppointmentService {
         return convertToDTO(savedAppointment);
     }
 
-    public AppointmentDTO confirmAppointment(Long id, AppointmentConfirmationRequest request) {
+    public AppointmentDto confirmAppointment(Long id, AppointmentConfirmationRequest request) {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Запись не найдена с ID: " + id));
 
@@ -130,7 +130,7 @@ public class AppointmentService {
         return convertToDTO(updatedAppointment);
     }
 
-    public List<AppointmentDTO> getPendingAppointments() {
+    public List<AppointmentDto> getPendingAppointments() {
         List<Appointment> appointments = appointmentRepository.findByStatus(
                 AppointmentStatus.PENDING);
         return appointments.stream()
@@ -138,7 +138,7 @@ public class AppointmentService {
                 .collect(Collectors.toList());
     }
 
-    public List<AppointmentDTO> getConfirmedAppointments() {
+    public List<AppointmentDto> getConfirmedAppointments() {
         List<Appointment> appointments = appointmentRepository.findByStatus(
                 AppointmentStatus.CONFIRMED);
         return appointments.stream()
@@ -147,8 +147,8 @@ public class AppointmentService {
     }
 
     // Обновить метод convertToDTO
-    private AppointmentDTO convertToDTO(Appointment appointment) {
-        AppointmentDTO dto = AppointmentDTO.builder()
+    private AppointmentDto convertToDTO(Appointment appointment) {
+        AppointmentDto dto = AppointmentDto.builder()
                 .id(appointment.getId())
                 .doctorId(appointment.getDoctorId())
                 .patientId(appointment.getPatientId())
@@ -206,7 +206,7 @@ public class AppointmentService {
     }
 
     // ДОБАВИТЬ метод для изменения времени записи
-    public AppointmentDTO rescheduleAppointment(Long id, LocalDateTime newStartTime, String modifiedBy) {
+    public AppointmentDto rescheduleAppointment(Long id, LocalDateTime newStartTime, String modifiedBy) {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Запись не найдена с ID: " + id));
 
@@ -255,14 +255,14 @@ public class AppointmentService {
     }
 
     // Остальные методы остаются БЕЗ изменений или с минимальными правками
-    public AppointmentDTO getAppointmentById(Long id) {
+    public AppointmentDto getAppointmentById(Long id) {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Запись не найдена с ID: " + id));
 
         return convertToDTO(appointment);
     }
 
-    public List<AppointmentDTO> getAppointmentsByDoctor(Long doctorId) {
+    public List<AppointmentDto> getAppointmentsByDoctor(Long doctorId) {
         List<Appointment> appointments = appointmentRepository.findByDoctorId(doctorId);
 
         return appointments.stream()
@@ -270,7 +270,7 @@ public class AppointmentService {
                 .collect(Collectors.toList());
     }
 
-    public List<AppointmentDTO> getDoctorSchedule(Long doctorId, LocalDate date) {
+    public List<AppointmentDto> getDoctorSchedule(Long doctorId, LocalDate date) {
         LocalDateTime startOfDay = date.atStartOfDay();
         LocalDateTime endOfDay = date.atTime(LocalTime.MAX);
 
@@ -282,7 +282,7 @@ public class AppointmentService {
                 .collect(Collectors.toList());
     }
 
-    public List<AppointmentDTO> getUpcomingAppointmentsForPatient(Long patientId) {
+    public List<AppointmentDto> getUpcomingAppointmentsForPatient(Long patientId) {
         LocalDateTime now = LocalDateTime.now();
 
         List<Appointment> appointments = appointmentRepository

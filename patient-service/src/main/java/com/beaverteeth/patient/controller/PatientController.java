@@ -1,7 +1,7 @@
 package com.beaverteeth.patient.controller;
 
 import com.beaverteeth.patient.model.dto.CreatePatientRequest;
-import com.beaverteeth.patient.model.dto.PatientDTO;
+import com.beaverteeth.patient.model.dto.PatientDto;
 import com.beaverteeth.patient.service.PatientService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -24,15 +24,15 @@ public class PatientController {
 
     @PostMapping
     @Operation(summary = "Создать нового пациента")
-    public ResponseEntity<PatientDTO> createPatient(@Valid @RequestBody CreatePatientRequest request) {
-        PatientDTO patientDTO = patientService.createPatient(request);
+    public ResponseEntity<PatientDto> createPatient(@Valid @RequestBody CreatePatientRequest request) {
+        PatientDto patientDTO = patientService.createPatient(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(patientDTO);
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Получить пациента по ID")
-    public ResponseEntity<PatientDTO> getPatient(@PathVariable Long id) {
-        PatientDTO patientDTO = patientService.getPatientById(id);
+    public ResponseEntity<PatientDto> getPatient(@PathVariable Long id) {
+        PatientDto patientDTO = patientService.getPatientById(id);
         return ResponseEntity.ok(patientDTO);
     }
 
@@ -50,47 +50,47 @@ public class PatientController {
 
     @GetMapping("/{id}/with-chat")
     @Operation(summary = "Получить пациента по ID с информацией о chatId")
-    public ResponseEntity<PatientDTO> getPatientWithChatId(@PathVariable Long id) {
-        PatientDTO patientDTO = patientService.getPatientWithChatId(id);
+    public ResponseEntity<PatientDto> getPatientWithChatId(@PathVariable Long id) {
+        PatientDto patientDTO = patientService.getPatientWithChatId(id);
         return ResponseEntity.ok(patientDTO);
     }
 
     @GetMapping("/phone/{phone}")
     @Operation(summary = "Получить пациента по телефону")
-    public ResponseEntity<PatientDTO> getPatientByPhone(@PathVariable String phone) {
-        PatientDTO patientDTO = patientService.getPatientByPhone(phone);
+    public ResponseEntity<PatientDto> getPatientByPhone(@PathVariable String phone) {
+        PatientDto patientDTO = patientService.getPatientByPhone(phone);
         return ResponseEntity.ok(patientDTO);
     }
 
     @GetMapping("/telegram/{username}")
     @Operation(summary = "Получить пациента по Telegram username")
-    public ResponseEntity<PatientDTO> getPatientByTelegramUsername(@PathVariable String username) {
-        PatientDTO patientDTO = patientService.getPatientByTelegramUsername(username);
+    public ResponseEntity<PatientDto> getPatientByTelegramUsername(@PathVariable String username) {
+        PatientDto patientDTO = patientService.getPatientByTelegramUsername(username);
         return ResponseEntity.ok(patientDTO);
     }
 
     @GetMapping
     @Operation(summary = "Получить всех пациентов")
-    public ResponseEntity<List<PatientDTO>> getAllPatients() {
-        List<PatientDTO> patients = patientService.getAllPatients();
+    public ResponseEntity<List<PatientDto>> getAllPatients() {
+        List<PatientDto> patients = patientService.getAllPatients();
         return ResponseEntity.ok(patients);
     }
 
     @GetMapping("/search")
     @Operation(summary = "Поиск пациентов по имени")
-    public ResponseEntity<List<PatientDTO>> searchPatients(@RequestParam String name) {
-        List<PatientDTO> patients = patientService.searchPatientsByName(name);
+    public ResponseEntity<List<PatientDto>> searchPatients(@RequestParam String name) {
+        List<PatientDto> patients = patientService.searchPatientsByName(name);
         return ResponseEntity.ok(patients);
     }
 
     @PutMapping("/{id}")
     @Operation(summary = "Обновить данные пациента")
-    public ResponseEntity<PatientDTO> updatePatient(
+    public ResponseEntity<PatientDto> updatePatient(
             @PathVariable Long id,
-            @Valid @RequestBody PatientDTO patientDTO,
+            @Valid @RequestBody PatientDto patientDTO,
             @RequestHeader("X-User-Id") String userId) {
 
-        PatientDTO updatedPatient = patientService.updatePatient(id, patientDTO, userId);
+        PatientDto updatedPatient = patientService.updatePatient(id, patientDTO, userId);
         return ResponseEntity.ok(updatedPatient);
     }
 

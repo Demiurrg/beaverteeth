@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class TimeSlotDTO {
+public class TimeSlotDto {
     private LocalDateTime startTime;
     private LocalDateTime endTime;
     private Long doctorId;

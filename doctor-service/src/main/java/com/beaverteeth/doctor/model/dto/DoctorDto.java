@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class DoctorDTO {
+public class DoctorDto {
     private Long id;
     private String fullName;
     private Integer totalExperience;
