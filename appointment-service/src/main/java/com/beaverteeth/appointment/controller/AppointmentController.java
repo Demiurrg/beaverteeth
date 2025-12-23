@@ -30,6 +30,12 @@ public class AppointmentController {
         return appointmentService.createAppointment(request);
     }
 
+    @GetMapping
+    @Operation(summary = "Получить все записи на прием")
+    public List<AppointmentDto> getAllAppointments() {
+        return appointmentService.getAllAppointments();
+    }
+
     @GetMapping("/{id}")
     @Operation(summary = "Получить запись по ID")
     public AppointmentDto getAppointment(@PathVariable Long id) {

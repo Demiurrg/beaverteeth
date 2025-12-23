@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -88,6 +89,17 @@ public class AppointmentService {
         auditService.logAppointmentCreation(savedAppointment, createdBy);
 
         return convertToDTO(savedAppointment);
+    }
+
+    public List<AppointmentDto> getAllAppointments() {
+        List<Appointment> appointments = appointmentRepository.findAll();
+
+        // Сортируем по дате начала приема (от старых к новым)
+        appointments.sort(Comparator.comparing(Appointment::getStartTime));
+
+        return appointments.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
     }
 
     public AppointmentDto confirmAppointment(Long id, AppointmentConfirmationRequest request) {
