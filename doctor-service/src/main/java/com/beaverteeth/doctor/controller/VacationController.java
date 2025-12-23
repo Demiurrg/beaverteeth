@@ -9,7 +9,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -24,33 +23,30 @@ public class VacationController {
     private final VacationService vacationService;
 
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Добавить отпуск для врача")
-    public ResponseEntity<Vacation> createVacation(@Valid @RequestBody VacationRequest request) {
-        Vacation vacation = vacationService.createVacation(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(vacation);
+    public Vacation createVacation(@Valid @RequestBody VacationRequest request) {
+        return vacationService.createVacation(request);
     }
 
     @GetMapping("/doctor/{doctorId}")
     @Operation(summary = "Получить все отпуска врача")
-    public ResponseEntity<List<Vacation>> getDoctorVacations(@PathVariable Long doctorId) {
-        List<Vacation> vacations = vacationService.getVacationsByDoctor(doctorId);
-        return ResponseEntity.ok(vacations);
+    public List<Vacation> getDoctorVacations(@PathVariable Long doctorId) {
+        return vacationService.getVacationsByDoctor(doctorId);
     }
 
     @GetMapping("/doctor/{doctorId}/check")
     @Operation(summary = "Проверить, в отпуске ли врач на дату")
-    public ResponseEntity<Boolean> isDoctorOnVacation(
+    public boolean isDoctorOnVacation(
             @PathVariable Long doctorId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-
-        boolean isOnVacation = vacationService.isDoctorOnVacation(doctorId, date);
-        return ResponseEntity.ok(isOnVacation);
+        return vacationService.isDoctorOnVacation(doctorId, date);
     }
 
     @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Удалить запись об отпуске")
-    public ResponseEntity<Void> deleteVacation(@PathVariable Long id) {
+    public void deleteVacation(@PathVariable Long id) {
         vacationService.deleteVacation(id);
-        return ResponseEntity.noContent().build();
     }
 }

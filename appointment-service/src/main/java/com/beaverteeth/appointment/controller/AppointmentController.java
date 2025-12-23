@@ -9,7 +9,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -25,94 +24,73 @@ public class AppointmentController {
     private final TimeSlotService timeSlotService;
 
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Создать новую запись на прием")
-    public ResponseEntity<AppointmentDto> createAppointment(
-            @Valid @RequestBody CreateAppointmentRequest request) {
-
-        AppointmentDto appointment = appointmentService.createAppointment(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(appointment);
+    public AppointmentDto createAppointment(@Valid @RequestBody CreateAppointmentRequest request) {
+        return appointmentService.createAppointment(request);
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Получить запись по ID")
-    public ResponseEntity<AppointmentDto> getAppointment(@PathVariable Long id) {
-        AppointmentDto appointment = appointmentService.getAppointmentById(id);
-        return ResponseEntity.ok(appointment);
+    public AppointmentDto getAppointment(@PathVariable Long id) {
+        return appointmentService.getAppointmentById(id);
     }
 
     @GetMapping("/doctor/{doctorId}")
     @Operation(summary = "Получить все записи врача")
-    public ResponseEntity<List<AppointmentDto>> getDoctorAppointments(
-            @PathVariable Long doctorId) {
-
-        List<AppointmentDto> appointments = appointmentService.getAppointmentsByDoctor(doctorId);
-        return ResponseEntity.ok(appointments);
+    public List<AppointmentDto> getDoctorAppointments(@PathVariable Long doctorId) {
+        return appointmentService.getAppointmentsByDoctor(doctorId);
     }
 
     @GetMapping("/doctor/{doctorId}/schedule")
     @Operation(summary = "Получить расписание врача на день")
-    public ResponseEntity<List<AppointmentDto>> getDoctorSchedule(
+    public List<AppointmentDto> getDoctorSchedule(
             @PathVariable Long doctorId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-
-        List<AppointmentDto> appointments = appointmentService.getDoctorSchedule(doctorId, date);
-        return ResponseEntity.ok(appointments);
+        return appointmentService.getDoctorSchedule(doctorId, date);
     }
 
     @GetMapping("/available-slots")
     @Operation(summary = "Получить свободные слоты времени для записи")
-    public ResponseEntity<List<TimeSlotDto>> getAvailableTimeSlots(
-            @Valid TimeSlotRequest request) {
-
-        List<TimeSlotDto> slots = timeSlotService.getAvailableTimeSlots(request);
-        return ResponseEntity.ok(slots);
+    public List<TimeSlotDto> getAvailableTimeSlots(@Valid TimeSlotRequest request) {
+        return timeSlotService.getAvailableTimeSlots(request);
     }
 
     @PostMapping("/{id}/cancel")
     @Operation(summary = "Отменить запись")
-    public ResponseEntity<Void> cancelAppointment(@PathVariable Long id) {
+    public void cancelAppointment(@PathVariable Long id) {
         appointmentService.cancelAppointment(id);
-        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/{id}/complete")
     @Operation(summary = "Завершить запись")
-    public ResponseEntity<Void> completeAppointment(@PathVariable Long id) {
+    public void completeAppointment(@PathVariable Long id) {
         appointmentService.completeAppointment(id);
-        return ResponseEntity.ok().build();
     }
 
     @GetMapping("/patient/{patientId}/upcoming")
     @Operation(summary = "Получить предстоящие записи пациента")
-    public ResponseEntity<List<AppointmentDto>> getPatientUpcomingAppointments(
-            @PathVariable Long patientId) {
-
-        List<AppointmentDto> appointments = appointmentService
-                .getUpcomingAppointmentsForPatient(patientId);
-        return ResponseEntity.ok(appointments);
+    public List<AppointmentDto> getPatientUpcomingAppointments(@PathVariable Long patientId) {
+        return appointmentService.getUpcomingAppointmentsForPatient(patientId);
     }
 
     @GetMapping("/pending")
     @Operation(summary = "Получить все записи, ожидающие подтверждения")
-    public ResponseEntity<List<AppointmentDto>> getPendingAppointments() {
-        List<AppointmentDto> appointments = appointmentService.getPendingAppointments();
-        return ResponseEntity.ok(appointments);
+    public List<AppointmentDto> getPendingAppointments() {
+        return appointmentService.getPendingAppointments();
     }
 
     @GetMapping("/confirmed")
     @Operation(summary = "Получить все подтвержденные записи")
-    public ResponseEntity<List<AppointmentDto>> getConfirmedAppointments() {
-        List<AppointmentDto> appointments = appointmentService.getConfirmedAppointments();
-        return ResponseEntity.ok(appointments);
+    public List<AppointmentDto> getConfirmedAppointments() {
+        return appointmentService.getConfirmedAppointments();
     }
 
     @PostMapping("/{id}/confirm")
     @Operation(summary = "Подтвердить или отклонить запись")
-    public ResponseEntity<AppointmentDto> confirmAppointment(
+    public AppointmentDto confirmAppointment(
             @PathVariable Long id,
             @Valid @RequestBody AppointmentConfirmationRequest request) {
-
-        AppointmentDto appointment = appointmentService.confirmAppointment(id, request);
-        return ResponseEntity.ok(appointment);
+        return appointmentService.confirmAppointment(id, request);
     }
 }
