@@ -42,7 +42,11 @@ public class Patient extends AuditEntity {
     @Column(name = "telegram_username", unique = true)
     private String telegramUsername;
 
+    @Column(name = "telegram_chat_id")
+    private Long telegramChatId;
+
     @Column(name = "is_active")
+    @Builder.Default
     private Boolean isActive = true;
 
     @Column(name = "notes", columnDefinition = "TEXT")

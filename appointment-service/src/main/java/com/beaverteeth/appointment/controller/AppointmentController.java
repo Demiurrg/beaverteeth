@@ -91,4 +91,28 @@ public class AppointmentController {
                 .getUpcomingAppointmentsForPatient(patientId);
         return ResponseEntity.ok(appointments);
     }
+
+    @GetMapping("/pending")
+    @Operation(summary = "Получить все записи, ожидающие подтверждения")
+    public ResponseEntity<List<AppointmentDTO>> getPendingAppointments() {
+        List<AppointmentDTO> appointments = appointmentService.getPendingAppointments();
+        return ResponseEntity.ok(appointments);
+    }
+
+    @GetMapping("/confirmed")
+    @Operation(summary = "Получить все подтвержденные записи")
+    public ResponseEntity<List<AppointmentDTO>> getConfirmedAppointments() {
+        List<AppointmentDTO> appointments = appointmentService.getConfirmedAppointments();
+        return ResponseEntity.ok(appointments);
+    }
+
+    @PostMapping("/{id}/confirm")
+    @Operation(summary = "Подтвердить или отклонить запись")
+    public ResponseEntity<AppointmentDTO> confirmAppointment(
+            @PathVariable Long id,
+            @Valid @RequestBody AppointmentConfirmationRequest request) {
+
+        AppointmentDTO appointment = appointmentService.confirmAppointment(id, request);
+        return ResponseEntity.ok(appointment);
+    }
 }

@@ -16,6 +16,7 @@ public class PatientDTO {
     private String phone;
     private String email;
     private String telegramUsername;
+    private Long telegramChatId;
     private Boolean isActive;
     private String notes;
 

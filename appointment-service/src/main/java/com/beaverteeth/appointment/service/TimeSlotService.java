@@ -48,6 +48,27 @@ public class TimeSlotService {
         }
     }
 
+    public Long getPatientChatId(Long patientId) {
+        try {
+            String url = patientServiceUrl + "/api/patients/" + patientId;
+            ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
+
+            if (response.getBody() != null) {
+                Object chatId = response.getBody().get("telegramChatId");
+                if (chatId != null) {
+                    if (chatId instanceof Integer) return ((Integer) chatId).longValue();
+                    if (chatId instanceof Long) return (Long) chatId;
+                    if (chatId instanceof Number) return ((Number) chatId).longValue();
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Не удалось получить telegramChatId для пациента {}: {}",
+                    patientId, e.getMessage());
+        }
+        return null;
+    }
+
+
     public List<TimeSlotDTO> getAvailableTimeSlots(TimeSlotRequest request) {
         // Ищем врача по фамилии
         Long doctorId = findDoctorIdByLastName(request.getDoctorLastName());

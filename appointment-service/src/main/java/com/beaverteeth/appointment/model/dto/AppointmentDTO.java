@@ -20,7 +20,13 @@ public class AppointmentDTO {
     private LocalDateTime createdAt;
     private LocalDateTime changedAt;
 
-    // Информация для отображения (заполняется сервисом)
+    // Новые поля
+    private String confirmedBy;
+    private String confirmationNotes;
+    private LocalDateTime confirmationDate;
+    private Long patientChatId;
+
+    // Информация для отображения
     private String doctorName;
     private String patientName;
 }
