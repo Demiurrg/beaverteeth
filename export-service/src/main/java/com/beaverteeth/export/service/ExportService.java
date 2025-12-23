@@ -1,12 +1,19 @@
 package com.beaverteeth.export.service;
 
 import com.beaverteeth.export.model.ExportData;
+import com.beaverteeth.export.model.dto.AppointmentDto;
+import com.beaverteeth.export.model.dto.DoctorDto;
+import com.beaverteeth.export.model.dto.PatientDto;
+import com.beaverteeth.export.model.dto.CreateAppointmentRequest;
+import com.beaverteeth.export.model.dto.CreateDoctorRequest;
+import com.beaverteeth.export.model.dto.CreatePatientRequest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.ResponseEntity;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -17,7 +24,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -44,17 +51,12 @@ public class ExportService {
     public String exportAllData() throws IOException {
         log.info("Начинаем экспорт всех данных");
 
-        // Собираем данные из всех сервисов
         ExportData exportData = collectAllData();
-
-        // Создаем директорию для экспорта если не существует
         createExportDirectory();
 
-        // Генерируем имя файла с датой
         String fileName = generateExportFileName();
         String filePath = exportDirectory + "/" + fileName;
 
-        // Записываем данные в JSON файл
         writeDataToFile(exportData, filePath);
 
         log.info("Экспорт завершен. Файл: {}", filePath);
@@ -64,10 +66,8 @@ public class ExportService {
     public void restoreFromFile(String filePath) throws IOException {
         log.info("Начинаем восстановление данных из файла: {}", filePath);
 
-        // Читаем данные из файла
         ExportData exportData = readDataFromFile(filePath);
 
-        // Восстанавливаем данные в системе
         restoreDoctors(exportData.getDoctors());
         restorePatients(exportData.getPatients());
         restoreAppointments(exportData.getAppointments());
@@ -103,24 +103,27 @@ public class ExportService {
     }
 
     private ExportData collectAllData() {
-        ExportData exportData = ExportData.builder()
+        return ExportData.builder()
                 .exportDate(LocalDateTime.now())
                 .doctors(fetchDoctors())
                 .patients(fetchPatients())
                 .appointments(fetchAppointments())
                 .build();
-
-        return exportData;
     }
 
     private List<ExportData.DoctorData> fetchDoctors() {
         try {
-            String url = doctorServiceUrl + "/api/doctors";
-            ResponseEntity<ExportData.DoctorData[]> response = restTemplate
-                    .getForEntity(url, ExportData.DoctorData[].class);
+            List<DoctorDto> doctorDtos = restTemplate.exchange(
+                    doctorServiceUrl + "/api/doctors",
+                    HttpMethod.GET,
+                    null,
+                    new ParameterizedTypeReference<List<DoctorDto>>() {}
+            ).getBody();
 
-            if (response.getBody() != null) {
-                return Arrays.asList(response.getBody());
+            if (doctorDtos != null) {
+                return doctorDtos.stream()
+                        .map(this::convertToDoctorData)
+                        .toList();
             }
         } catch (Exception e) {
             log.error("Ошибка при получении данных врачей: {}", e.getMessage());
@@ -129,14 +132,31 @@ public class ExportService {
         return List.of();
     }
 
+    private ExportData.DoctorData convertToDoctorData(DoctorDto dto) {
+        return ExportData.DoctorData.builder()
+                .id(dto.getId())
+                .fullName(dto.getFullName())
+                .specialty(dto.getSpecialty())
+                .totalExperience(dto.getTotalExperience())
+                .clinicExperience(dto.getClinicExperience())
+                .education(dto.getEducation())
+                .certificates(dto.getCertificates())
+                .build();
+    }
+
     private List<ExportData.PatientData> fetchPatients() {
         try {
-            String url = patientServiceUrl + "/api/patients";
-            ResponseEntity<ExportData.PatientData[]> response = restTemplate
-                    .getForEntity(url, ExportData.PatientData[].class);
+            List<PatientDto> patientDtos = restTemplate.exchange(
+                    patientServiceUrl + "/api/patients",
+                    HttpMethod.GET,
+                    null,
+                    new ParameterizedTypeReference<List<PatientDto>>() {}
+            ).getBody();
 
-            if (response.getBody() != null) {
-                return Arrays.asList(response.getBody());
+            if (patientDtos != null) {
+                return patientDtos.stream()
+                        .map(this::convertToPatientData)
+                        .toList();
             }
         } catch (Exception e) {
             log.error("Ошибка при получении данных пациентов: {}", e.getMessage());
@@ -145,25 +165,32 @@ public class ExportService {
         return List.of();
     }
 
+    private ExportData.PatientData convertToPatientData(PatientDto dto) {
+        return ExportData.PatientData.builder()
+                .id(dto.getId())
+                .fullName(dto.getFullName())
+                .age(dto.getAge())
+                .address(dto.getAddress())
+                .phone(dto.getPhone())
+                .email(dto.getEmail())
+                .notes(dto.getNotes())
+                .build();
+    }
+
     private List<ExportData.AppointmentData> fetchAppointments() {
         try {
-            // Получаем всех врачей и их записи
-            List<ExportData.DoctorData> doctors = fetchDoctors();
-            List<ExportData.AppointmentData> allAppointments = new java.util.ArrayList<>();
+            List<AppointmentDto> appointmentDtos = restTemplate.exchange(
+                    appointmentServiceUrl + "/api/appointments",
+                    HttpMethod.GET,
+                    null,
+                    new ParameterizedTypeReference<List<AppointmentDto>>() {}
+            ).getBody();
 
-            for (ExportData.DoctorData doctor : doctors) {
-                String url = appointmentServiceUrl + "/api/appointments/doctor/" + doctor.getId();
-                ResponseEntity<Map[]> response = restTemplate.getForEntity(url, Map[].class);
-
-                if (response.getBody() != null) {
-                    for (Map appointmentMap : response.getBody()) {
-                        ExportData.AppointmentData appointment = convertMapToAppointmentData(appointmentMap);
-                        allAppointments.add(appointment);
-                    }
-                }
+            if (appointmentDtos != null) {
+                return appointmentDtos.stream()
+                        .map(this::convertToAppointmentData)
+                        .toList();
             }
-
-            return allAppointments;
         } catch (Exception e) {
             log.error("Ошибка при получении данных записей: {}", e.getMessage());
         }
@@ -171,17 +198,17 @@ public class ExportService {
         return List.of();
     }
 
-    private ExportData.AppointmentData convertMapToAppointmentData(Map<String, Object> map) {
+    private ExportData.AppointmentData convertToAppointmentData(AppointmentDto dto) {
         return ExportData.AppointmentData.builder()
-                .id(((Integer) map.get("id")).longValue())
-                .doctorId(((Integer) map.get("doctorId")).longValue())
-                .patientId(((Integer) map.get("patientId")).longValue())
-                .startTime(LocalDateTime.parse((String) map.get("startTime")))
-                .endTime(LocalDateTime.parse((String) map.get("endTime")))
-                .status((String) map.get("status"))
-                .notes((String) map.get("notes"))
-                .createdAt(LocalDateTime.parse((String) map.get("createdAt")))
-                .changedAt(LocalDateTime.parse((String) map.get("updatedAt")))
+                .id(dto.getId())
+                .doctorId(dto.getDoctorId())
+                .patientId(dto.getPatientId())
+                .startTime(dto.getStartTime())
+                .endTime(dto.getEndTime())
+                .status(dto.getStatus())
+                .notes(dto.getNotes())
+                .createdAt(dto.getCreatedAt())
+                .changedAt(dto.getChangedAt())
                 .build();
     }
 
@@ -190,29 +217,28 @@ public class ExportService {
 
         for (ExportData.DoctorData doctor : doctors) {
             try {
-                // Проверяем, существует ли уже врач
-                String checkUrl = doctorServiceUrl + "/api/doctors/" + doctor.getId();
-                try {
-                    restTemplate.getForEntity(checkUrl, Map.class);
+                // Проверяем существование врача
+                if (doctorExists(doctor.getId())) {
                     log.info("Врач ID {} уже существует, пропускаем", doctor.getId());
                     continue;
-                } catch (Exception e) {
-                    // Врач не существует, создаем нового
                 }
 
                 // Создаем врача
-                String createUrl = doctorServiceUrl + "/api/doctors";
-                Map<String, Object> request = Map.of(
-                        "fullName", doctor.getFullName(),
-                        "totalExperience", doctor.getTotalExperience(),
-                        "clinicExperience", doctor.getClinicExperience(),
-                        "specialty", doctor.getSpecialty(),
-                        "education", doctor.getEducation(),
-                        "certificates", doctor.getCertificates(),
-                        "createdBy", "system-restore"
-                );
+                CreateDoctorRequest request = CreateDoctorRequest.builder()
+                        .fullName(doctor.getFullName())
+                        .totalExperience(doctor.getTotalExperience())
+                        .clinicExperience(doctor.getClinicExperience())
+                        .specialty(doctor.getSpecialty())
+                        .education(doctor.getEducation())
+                        .certificates(doctor.getCertificates())
+                        .createdBy("system-restore")
+                        .build();
 
-                restTemplate.postForEntity(createUrl, request, Map.class);
+                restTemplate.postForObject(
+                        doctorServiceUrl + "/api/doctors",
+                        request,
+                        DoctorDto.class
+                );
                 log.info("Восстановлен врач: {}", doctor.getFullName());
 
             } catch (Exception e) {
@@ -221,34 +247,45 @@ public class ExportService {
         }
     }
 
+    private boolean doctorExists(Long doctorId) {
+        try {
+            restTemplate.getForObject(
+                    doctorServiceUrl + "/api/doctors/" + doctorId,
+                    DoctorDto.class
+            );
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     private void restorePatients(List<ExportData.PatientData> patients) {
         log.info("Восстановление {} пациентов", patients.size());
 
         for (ExportData.PatientData patient : patients) {
             try {
-                // Проверяем, существует ли уже пациент
-                String checkUrl = patientServiceUrl + "/api/patients/" + patient.getId();
-                try {
-                    restTemplate.getForEntity(checkUrl, Map.class);
+                // Проверяем существование пациента
+                if (patientExists(patient.getId())) {
                     log.info("Пациент ID {} уже существует, пропускаем", patient.getId());
                     continue;
-                } catch (Exception e) {
-                    // Пациент не существует, создаем нового
                 }
 
                 // Создаем пациента
-                String createUrl = patientServiceUrl + "/api/patients";
-                Map<String, Object> request = Map.of(
-                        "fullName", patient.getFullName(),
-                        "age", patient.getAge(),
-                        "address", patient.getAddress(),
-                        "phone", patient.getPhone(),
-                        "email", patient.getEmail(),
-                        "notes", patient.getNotes(),
-                        "createdBy", "system-restore"
-                );
+                CreatePatientRequest request = CreatePatientRequest.builder()
+                        .fullName(patient.getFullName())
+                        .age(patient.getAge())
+                        .address(patient.getAddress())
+                        .phone(patient.getPhone())
+                        .email(patient.getEmail())
+                        .notes(patient.getNotes())
+                        .createdBy("system-restore")
+                        .build();
 
-                restTemplate.postForEntity(createUrl, request, Map.class);
+                restTemplate.postForObject(
+                        patientServiceUrl + "/api/patients",
+                        request,
+                        PatientDto.class
+                );
                 log.info("Восстановлен пациент: {}", patient.getFullName());
 
             } catch (Exception e) {
@@ -257,21 +294,47 @@ public class ExportService {
         }
     }
 
+    private boolean patientExists(Long patientId) {
+        try {
+            restTemplate.getForObject(
+                    patientServiceUrl + "/api/patients/" + patientId,
+                    PatientDto.class
+            );
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     private void restoreAppointments(List<ExportData.AppointmentData> appointments) {
         log.info("Восстановление {} записей", appointments.size());
 
         for (ExportData.AppointmentData appointment : appointments) {
             try {
-                // Создаем запись
-                String createUrl = appointmentServiceUrl + "/api/appointments";
-                Map<String, Object> request = Map.of(
-                        "doctorId", appointment.getDoctorId(),
-                        "patientId", appointment.getPatientId(),
-                        "startTime", appointment.getStartTime().toString(),
-                        "notes", appointment.getNotes() != null ? appointment.getNotes() : ""
-                );
+                // Проверяем, существуют ли врач и пациент
+                if (!doctorExists(appointment.getDoctorId())) {
+                    log.warn("Врач ID {} не существует, пропускаем запись", appointment.getDoctorId());
+                    continue;
+                }
 
-                restTemplate.postForEntity(createUrl, request, Map.class);
+                if (!patientExists(appointment.getPatientId())) {
+                    log.warn("Пациент ID {} не существует, пропускаем запись", appointment.getPatientId());
+                    continue;
+                }
+
+                // Создаем запись
+                CreateAppointmentRequest request = CreateAppointmentRequest.builder()
+                        .doctorId(appointment.getDoctorId())
+                        .patientId(appointment.getPatientId())
+                        .startTime(appointment.getStartTime())
+                        .notes(appointment.getNotes() != null ? appointment.getNotes() : "")
+                        .build();
+
+                restTemplate.postForObject(
+                        appointmentServiceUrl + "/api/appointments",
+                        request,
+                        AppointmentDto.class
+                );
                 log.info("Восстановлена запись: врач={}, пациент={}, время={}",
                         appointment.getDoctorId(), appointment.getPatientId(), appointment.getStartTime());
 
