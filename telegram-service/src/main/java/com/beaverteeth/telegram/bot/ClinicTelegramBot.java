@@ -1,5 +1,6 @@
 package com.beaverteeth.telegram.bot;
 
+import com.beaverteeth.telegram.model.dto.*;
 import com.beaverteeth.telegram.service.AppointmentApiClient;
 import com.beaverteeth.telegram.service.DoctorApiClient;
 import com.beaverteeth.telegram.service.PatientApiClient;
@@ -222,7 +223,7 @@ public class ClinicTelegramBot extends TelegramLongPollingBot {
 
     private void handleDoctorLastName(Long chatId, UserSession session, String lastName) {
         // Ищем врача по фамилии
-        List<Map<String, Object>> doctors = doctorApiClient.searchDoctorsByLastName(lastName);
+        List<DoctorDto> doctors = doctorApiClient.searchDoctorsByLastName(lastName);
 
         if (doctors.isEmpty()) {
             sendMessage(chatId, "❌ Врач с фамилией \"" + lastName + "\" не найден.\n" +
@@ -236,16 +237,16 @@ public class ClinicTelegramBot extends TelegramLongPollingBot {
             message.append("🔍 Найдено несколько врачей:\n\n");
 
             for (int i = 0; i < doctors.size(); i++) {
-                Map<String, Object> doctor = doctors.get(i);
-                String fullName = (String) doctor.get("fullName");
-                String specialty = (String) doctor.get("specialty");
+                DoctorDto doctor = doctors.get(i);
+                String fullName = doctor.getFullName();
+                String specialty = doctor.getSpecialty();
                 String specialtyDisplay = getSpecialtyDisplayName(specialty);
 
                 message.append(i + 1).append(". *").append(fullName).append("*\n");
                 message.append("   🎯 ").append(specialtyDisplay).append("\n\n");
 
                 // Сохраняем mapping для быстрого выбора
-                session.getData().put("doctor_" + i, doctor.get("id"));
+                session.getData().put("doctor_" + i, doctor.getId());
             }
 
             message.append("👇 Введите *номер врача* или *полную фамилию*");
@@ -258,10 +259,10 @@ public class ClinicTelegramBot extends TelegramLongPollingBot {
         }
 
         // Если нашли одного врача
-        Map<String, Object> doctor = doctors.get(0);
-        Long doctorId = ((Number) doctor.get("id")).longValue();
-        String fullName = (String) doctor.get("fullName");
-        String specialty = (String) doctor.get("specialty");
+        DoctorDto doctor = doctors.get(0);
+        Long doctorId = doctor.getId(); // Прямой доступ к полю
+        String fullName = doctor.getFullName();
+        String specialty = doctor.getSpecialty();
         String specialtyDisplay = getSpecialtyDisplayName(specialty);
 
         session.setDoctorLastName(lastName);
@@ -344,7 +345,7 @@ public class ClinicTelegramBot extends TelegramLongPollingBot {
     }
 
     private void showAvailableTimeSlots(Long chatId, String doctorLastName, LocalDate date) {
-        List<Map<String, Object>> timeSlots = appointmentApiClient
+        List<TimeSlotDto> timeSlots = appointmentApiClient
                 .getAvailableTimeSlots(doctorLastName, date);
 
         if (timeSlots.isEmpty()) {
@@ -360,15 +361,14 @@ public class ClinicTelegramBot extends TelegramLongPollingBot {
         InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
         List<List<InlineKeyboardButton>> rows = new ArrayList<>();
 
-        for (Map<String, Object> slot : timeSlots) {
-            String startTimeStr = (String) slot.get("startTime");
-            LocalDateTime startTime = LocalDateTime.parse(startTimeStr);
+        for (TimeSlotDto slot : timeSlots) {
+            LocalDateTime startTime = slot.getStartTime();
             String displayTime = startTime.format(DateTimeFormatter.ofPattern("HH:mm"));
 
             List<InlineKeyboardButton> row = new ArrayList<>();
             InlineKeyboardButton timeButton = new InlineKeyboardButton();
             timeButton.setText(displayTime);
-            timeButton.setCallbackData("timeslot_" + startTimeStr);
+            timeButton.setCallbackData("timeslot_" + startTime.format(DateTimeFormatter.ISO_DATE_TIME));
             row.add(timeButton);
 
             rows.add(row);
@@ -465,7 +465,6 @@ public class ClinicTelegramBot extends TelegramLongPollingBot {
 
     private void handleConfirmation(Long chatId, UserSession session, boolean confirmed) {
         if (confirmed) {
-            // Получаем telegramUsername из сессии
             String telegramUsername = (String) session.getData().get("telegramUsername");
 
             if (telegramUsername == null) {
@@ -474,8 +473,8 @@ public class ClinicTelegramBot extends TelegramLongPollingBot {
                 return;
             }
 
-            // Ищем пациента по telegramUsername
-            Map<String, Object> patient = patientApiClient.getPatientByTelegramUsername(telegramUsername);
+
+            PatientDto patient = patientApiClient.getPatientByTelegramUsername(telegramUsername);
 
             if (patient == null) {
                 sendMessage(chatId, "❌ Вы не зарегистрированы в системе. Пожалуйста, пройдите регистрацию.");
@@ -483,11 +482,9 @@ public class ClinicTelegramBot extends TelegramLongPollingBot {
                 return;
             }
 
-            // Получаем patientId из найденного пациента
-            Long patientId = ((Number) patient.get("id")).longValue();
-            String patientName = (String) patient.get("fullName");
+            Long patientId = patient.getId();
+            String patientName = patient.getFullName();
 
-            // Получаем doctorId из сессии
             Long doctorId = session.getSelectedDoctorId();
 
             if (doctorId == null) {
@@ -502,7 +499,7 @@ public class ClinicTelegramBot extends TelegramLongPollingBot {
                 patientChatId = chatId;
             }
 
-            Map<String, Object> result = appointmentApiClient.createAppointment(
+            AppointmentDto result = appointmentApiClient.createAppointment(
                     doctorId,
                     patientId,
                     session.getSelectedTime(),
@@ -510,9 +507,9 @@ public class ClinicTelegramBot extends TelegramLongPollingBot {
                     patientChatId
             );
 
-            if (result != null && result.containsKey("error")) {
-                sendMessage(chatId, "❌ Ошибка при создании записи: " + result.get("error"));
-            } else if (result != null) {
+            if (result == null) {
+                sendMessage(chatId, "❌ Ошибка при создании записи.");
+            } else {
                 String successMessage = String.format(
                         "✅ *Запись создана и отправлена на подтверждение!*\n\n" +
                                 "👤 Пациент: %s\n" +
@@ -526,8 +523,6 @@ public class ClinicTelegramBot extends TelegramLongPollingBot {
                         session.getSelectedTime().format(DateTimeFormatter.ofPattern("HH:mm"))
                 );
                 sendMessage(chatId, successMessage);
-            } else {
-                sendMessage(chatId, "❌ Неизвестная ошибка при создании записи.");
             }
         } else {
             sendMessage(chatId, "Запись отменена.");
@@ -583,8 +578,7 @@ public class ClinicTelegramBot extends TelegramLongPollingBot {
     private void showDoctorsWithDetails(Long chatId) {
         log.info("Показ детальной информации о врачах для чата: {}", chatId);
 
-        // Получаем всех активных врачей через DoctorApiClient
-        List<Map<String, Object>> doctors = doctorApiClient.getAllActiveDoctors();
+        List<DoctorDto> doctors = doctorApiClient.getAllActiveDoctors();
 
         if (doctors.isEmpty()) {
             sendMessage(chatId, "❌ В данный момент нет доступных врачей.");
@@ -592,21 +586,19 @@ public class ClinicTelegramBot extends TelegramLongPollingBot {
             return;
         }
 
-        // Формируем сообщение с детальной информацией
         StringBuilder message = new StringBuilder();
         message.append("👨‍⚕️ **Доступные врачи:**\n\n");
 
         for (int i = 0; i < doctors.size(); i++) {
-            Map<String, Object> doctor = doctors.get(i);
+            DoctorDto doctor = doctors.get(i);
 
-            String fullName = (String) doctor.get("fullName");
-            String specialty = (String) doctor.get("specialty");
-            Integer totalExp = (Integer) doctor.get("totalExperience");
-            Integer clinicExp = (Integer) doctor.get("clinicExperience");
-            String education = (String) doctor.get("education");
-            String certificates = (String) doctor.get("certificates");
+            String fullName = doctor.getFullName();
+            String specialty = doctor.getSpecialty();
+            Integer totalExp = doctor.getTotalExperience();
+            Integer clinicExp = doctor.getClinicExperience();
+            String education = doctor.getEducation();
+            String certificates = doctor.getCertificates();
 
-            // Преобразуем код специализации в читаемый формат
             String specialtyDisplay = getSpecialtyDisplayName(specialty);
 
             message.append("━━━━━━━━━━━━━━━━━━━━\n");
@@ -633,15 +625,13 @@ public class ClinicTelegramBot extends TelegramLongPollingBot {
         message.append("━━━━━━━━━━━━━━━━━━━━\n");
         message.append("Для записи нажмите **📅 Записаться на прием**");
 
-        // Отправляем сообщение
         sendMessage(chatId, message.toString());
     }
 
     private void showDoctorsBrief(Long chatId, UserSession session) {
         log.info("Показ краткого списка врачей для чата: {}", chatId);
 
-        // Получаем всех активных врачей
-        List<Map<String, Object>> doctors = doctorApiClient.getAllActiveDoctors();
+        List<DoctorDto> doctors = doctorApiClient.getAllActiveDoctors();
 
         if (doctors.isEmpty()) {
             sendMessage(chatId, "❌ В данный момент нет доступных врачей.");
@@ -649,47 +639,41 @@ public class ClinicTelegramBot extends TelegramLongPollingBot {
             return;
         }
 
-        // Формируем сообщение с краткой информацией
         StringBuilder message = new StringBuilder();
         message.append("👨‍⚕️ **Выберите врача для записи:**\n\n");
 
         for (int i = 0; i < doctors.size(); i++) {
-            Map<String, Object> doctor = doctors.get(i);
+            DoctorDto doctor = doctors.get(i);
 
-            String fullName = (String) doctor.get("fullName");
-            String specialty = (String) doctor.get("specialty");
-            Long doctorId = ((Number) doctor.get("id")).longValue();
+            String fullName = doctor.getFullName();
+            String specialty = doctor.getSpecialty();
+            Long doctorId = doctor.getId();
 
             String specialtyDisplay = getSpecialtyDisplayName(specialty);
 
             message.append(i + 1).append(". **").append(fullName).append("**\n");
             message.append("   🎯 ").append(specialtyDisplay).append("\n\n");
 
-            // Сохраняем mapping имени к ID для последующего выбора
             session.getData().put("doctor_" + fullName.toLowerCase(), doctorId);
         }
 
         message.append("👇 **Введите фамилию врача или выберите из списка выше**\n");
         message.append("Или нажмите **👨‍⚕️ Показать детали** для подробной информации");
 
-        // Отправляем сообщение с inline-клавиатурой
         SendMessage sendMessage = new SendMessage();
         sendMessage.setChatId(chatId.toString());
         sendMessage.setText(message.toString());
         sendMessage.setParseMode("Markdown");
 
-        // Создаем inline-клавиатуру
         InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
         List<List<InlineKeyboardButton>> rows = new ArrayList<>();
 
-        // Кнопка для показа детальной информации
         List<InlineKeyboardButton> row1 = new ArrayList<>();
         InlineKeyboardButton detailsButton = new InlineKeyboardButton();
         detailsButton.setText("👨‍⚕️ Показать детали о врачах");
         detailsButton.setCallbackData("show_doctor_details");
         row1.add(detailsButton);
 
-        // Кнопка назад
         List<InlineKeyboardButton> row2 = new ArrayList<>();
         InlineKeyboardButton backButton = new InlineKeyboardButton();
         backButton.setText("⬅️ Назад в меню");
@@ -755,14 +739,13 @@ public class ClinicTelegramBot extends TelegramLongPollingBot {
     }
 
     private void handlePhone(Long chatId, UserSession session, String phone) {
-        // Проверяем формат телефона
         if (!phone.matches("^\\+?[0-9]{10,15}$")) {
             sendMessage(chatId, "❌ Неверный формат телефона. Введите в формате +79161234567:");
             return;
         }
 
-        // Проверяем, не занят ли телефон
-        Map<String, Object> existingPatient = patientApiClient.getPatientByPhone(phone);
+        // Теперь возвращает PatientDto вместо Map
+        PatientDto existingPatient = patientApiClient.getPatientByPhone(phone);
         if (existingPatient != null) {
             sendMessage(chatId, "❌ Этот телефон уже зарегистрирован. Введите другой номер:");
             return;
@@ -794,19 +777,17 @@ public class ClinicTelegramBot extends TelegramLongPollingBot {
 
     private void handleChoosingDoctor(Long chatId, UserSession session, String text) {
         try {
-            // Пробуем распознать номер врача
             if (text.matches("^\\d+$")) {
-                int doctorNumber = Integer.parseInt(text) - 1; // Пользователь вводит 1,2,3...
+                int doctorNumber = Integer.parseInt(text) - 1;
                 String key = "doctor_" + doctorNumber;
 
                 if (session.getData().containsKey(key)) {
                     Long doctorId = (Long) session.getData().get(key);
-                    // Получаем информацию о враче
-                    Map<String, Object> doctor = doctorApiClient.getDoctorById(doctorId);
+                    DoctorDto doctor = doctorApiClient.getDoctorById(doctorId);
 
                     if (doctor != null) {
                         session.setSelectedDoctorId(doctorId);
-                        session.setDoctorLastName((String) doctor.get("fullName"));
+                        session.setDoctorLastName(doctor.getFullName());
                         session.setState(BotState.WAITING_DATE);
                         sessionManager.updateSession(session);
 
@@ -817,7 +798,6 @@ public class ClinicTelegramBot extends TelegramLongPollingBot {
                 }
             }
 
-            // Если не номер, то пробуем снова поиск по фамилии
             handleDoctorLastName(chatId, session, text);
 
         } catch (Exception e) {
@@ -866,25 +846,23 @@ public class ClinicTelegramBot extends TelegramLongPollingBot {
             return;
         }
 
-        Map<String, Object> patient = patientApiClient.getPatientByTelegramUsername(telegramUsername);
+        PatientDto patient = patientApiClient.getPatientByTelegramUsername(telegramUsername);
 
         if (patient != null) {
-            // Пользователь уже зарегистрирован - ОБНОВЛЯЕМ chatId
-            Long patientId = ((Number) patient.get("id")).longValue();
-            updatePatientChatId(patientId, chatId); // НОВЫЙ МЕТОД
+            Long patientId = patient.getId();
+            updatePatientChatId(patientId, chatId);
 
             session.setState(BotState.MAIN_MENU);
             session.getData().put("patientId", patientId);
-            session.getData().put("patientFullName", patient.get("fullName"));
+            session.getData().put("patientFullName", patient.getFullName()); // Используем метод
 
             sessionManager.updateSession(session);
 
             sendMessage(chatId, "✅ Вы уже зарегистрированы! Добро пожаловать.");
             showMainMenu(chatId);
         } else {
-            // Начинаем регистрацию
             session.setState(BotState.WAITING_FULL_NAME);
-            session.getData().put("patientChatId", chatId); // Сохраняем chatId для будущего пациента
+            session.getData().put("patientChatId", chatId);
             sessionManager.updateSession(session);
 
             sendMessage(chatId, "👋 Добро пожаловать! Пройдем регистрацию...");
@@ -914,22 +892,21 @@ public class ClinicTelegramBot extends TelegramLongPollingBot {
             String telegramUsername = (String) session.getData().get("telegramUsername");
             Long patientChatId = (Long) session.getData().get("patientChatId");
 
-            Map<String, Object> patientData = Map.of(
-                    "fullName", session.getData().get("fullName"),
-                    "age", session.getData().get("age"),
-                    "address", session.getData().get("address"),
-                    "phone", session.getData().get("phone"),
-                    "email", session.getData().get("email"),
-                    "telegramUsername", telegramUsername,
-                    "telegramChatId", patientChatId, // ДОБАВЛЯЕМ CHAT ID
-                    "notes", "Зарегистрирован через Telegram бот",
-                    "createdBy", "telegram_bot"
-            );
+            CreatePatientRequest request = new CreatePatientRequest();
+            request.setFullName((String) session.getData().get("fullName"));
+            request.setAge((Integer) session.getData().get("age"));
+            request.setAddress((String) session.getData().get("address"));
+            request.setPhone((String) session.getData().get("phone"));
+            request.setEmail((String) session.getData().get("email"));
+            request.setTelegramUsername(telegramUsername);
+            request.setTelegramChatId(patientChatId);
+            request.setNotes("Зарегистрирован через Telegram бот");
 
-            Map<String, Object> createdPatient = patientApiClient.createPatient(patientData);
+            // Теперь возвращает PatientDto
+            PatientDto createdPatient = patientApiClient.createPatient(request);
 
             if (createdPatient != null) {
-                session.getData().put("patientId", createdPatient.get("id"));
+                session.getData().put("patientId", createdPatient.getId());
                 session.setState(BotState.MAIN_MENU);
                 sessionManager.updateSession(session);
 

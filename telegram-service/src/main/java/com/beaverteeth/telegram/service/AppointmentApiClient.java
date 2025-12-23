@@ -1,19 +1,20 @@
 package com.beaverteeth.telegram.service;
 
+import com.beaverteeth.telegram.model.dto.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.ResponseEntity;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -21,7 +22,7 @@ import java.util.Map;
 public class AppointmentApiClient {
 
     private final RestTemplate restTemplate;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     @Value("${appointment.service.url:http://localhost:8083}")
     private String appointmentServiceUrl;
@@ -29,7 +30,7 @@ public class AppointmentApiClient {
     @Value("${patient.service.url:http://localhost:8082}")
     private String patientServiceUrl;
 
-    public List<Map<String, Object>> getAvailableTimeSlots(String doctorLastName, LocalDate date) {
+    public List<TimeSlotDto> getAvailableTimeSlots(String doctorLastName, LocalDate date) {
         try {
             String formattedDate = date.format(DateTimeFormatter.ISO_DATE);
             String url = appointmentServiceUrl + "/api/appointments/available-slots" +
@@ -37,69 +38,50 @@ public class AppointmentApiClient {
 
             log.info("Запрос свободных слотов: {}", url);
 
-            ResponseEntity<Map[]> response = restTemplate.getForEntity(url, Map[].class);
-
-            if (response.getBody() != null && response.getBody().length > 0) {
-                return Arrays.asList(response.getBody());
-            }
+            return restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    null,
+                    new ParameterizedTypeReference<List<TimeSlotDto>>() {}
+            ).getBody();
 
         } catch (Exception e) {
             log.error("Ошибка при получении свободных слотов для врача {} на дату {}: {}",
                     doctorLastName, date, e.getMessage());
+            return List.of();
         }
-
-        return List.of();
     }
 
-    public Map<String, Object> createAppointment(Long doctorId, Long patientId,
-                                                 LocalDateTime startTime, String notes,
-                                                 Long patientChatId) {
+    public AppointmentDto createAppointment(Long doctorId, Long patientId,
+                                            LocalDateTime startTime, String notes,
+                                            Long patientChatId) {
         try {
             String url = appointmentServiceUrl + "/api/appointments";
 
-            Map<String, Object> request = Map.of(
-                    "doctorId", doctorId,
-                    "patientId", patientId,
-                    "startTime", startTime.format(DateTimeFormatter.ISO_DATE_TIME),
-                    "notes", notes != null ? notes : "Запись через Telegram бот",
-                    "patientChatId", patientChatId
-            );
+            CreateAppointmentRequest request = new CreateAppointmentRequest();
+            request.setDoctorId(doctorId);
+            request.setPatientId(patientId);
+            request.setStartTime(startTime);
+            request.setNotes(notes != null ? notes : "Запись через Telegram бот");
+            request.setPatientChatId(patientChatId);
 
             log.info("Создание записи: doctorId={}, patientId={}, time={}, chatId={}",
                     doctorId, patientId, startTime, patientChatId);
 
-            ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
-
-            return response.getBody();
+            return restTemplate.postForEntity(url, request, AppointmentDto.class).getBody();
 
         } catch (Exception e) {
             log.error("Ошибка при создании записи: {}", e.getMessage());
-            return Map.of("error", "Ошибка при создании записи: " + e.getMessage());
+            return null;
         }
     }
 
-    public Long getPatientIdByPhone(String phone) {
+    public PatientDto getPatientByPhone(String phone) {
         try {
-            // Реальный запрос к patient-service для поиска пациента по телефону
             String url = patientServiceUrl + "/api/patients/phone/" + phone;
             log.info("Поиск пациента по телефону: {}", phone);
 
-            ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
-            Map<String, Object> patient = response.getBody();
-
-            if (patient != null && patient.containsKey("id")) {
-                Object id = patient.get("id");
-                if (id instanceof Integer) {
-                    return ((Integer) id).longValue();
-                } else if (id instanceof Long) {
-                    return (Long) id;
-                } else if (id instanceof Number) {
-                    return ((Number) id).longValue();
-                }
-            }
-
-            log.warn("Пациент с телефоном {} не найден", phone);
-            return null;
+            return restTemplate.getForObject(url, PatientDto.class);
 
         } catch (Exception e) {
             log.error("Ошибка при поиске пациента по телефону {}: {}", phone, e.getMessage());
@@ -107,28 +89,26 @@ public class AppointmentApiClient {
         }
     }
 
-    // Дополнительный метод для поиска пациента по Telegram username
-    public Long getPatientIdByTelegramUsername(String username) {
+    public PatientDto getPatientByTelegramUsername(String username) {
         try {
             String url = patientServiceUrl + "/api/patients/telegram/" + username;
             log.info("Поиск пациента по Telegram username: {}", username);
 
-            ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
-            Map<String, Object> patient = response.getBody();
-
-            if (patient != null && patient.containsKey("id")) {
-                Object id = patient.get("id");
-                if (id instanceof Number) {
-                    return ((Number) id).longValue();
-                }
-            }
-
-            log.warn("Пациент с Telegram username {} не найден", username);
-            return null;
+            return restTemplate.getForObject(url, PatientDto.class);
 
         } catch (Exception e) {
             log.info("Пациент с Telegram username {} не найден: {}", username, e.getMessage());
             return null;
         }
+    }
+
+    public Long getPatientIdByPhone(String phone) {
+        PatientDto patient = getPatientByPhone(phone);
+        return patient != null ? patient.getId() : null;
+    }
+
+    public Long getPatientIdByTelegramUsername(String username) {
+        PatientDto patient = getPatientByTelegramUsername(username);
+        return patient != null ? patient.getId() : null;
     }
 }
