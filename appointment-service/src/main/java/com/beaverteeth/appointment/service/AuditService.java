@@ -19,13 +19,13 @@ public class AuditService {
     private final TimeSlotService timeSlotService;
 
     @Async
-    public void logAppointmentChange(Long appointmentId, String action, String lastModifiedBy,
+    public void logAppointmentChange(Long appointmentId, String action, String changedBy,
                                      String description, String oldStatus, String newStatus) {
         try {
             AppointmentAuditLog auditLog = AppointmentAuditLog.builder()
                     .appointmentId(appointmentId)
                     .action(action)
-                    .lastModifiedBy(lastModifiedBy)
+                    .changedBy(changedBy)
                     .description(description)
                     .oldStatus(oldStatus)
                     .newStatus(newStatus)
@@ -33,8 +33,8 @@ public class AuditService {
 
             auditLogRepository.save(auditLog);
 
-            log.info("Запись в журнал аудита записи: AppointmentId={}, Action={}, LastModifiedBy={}",
-                    appointmentId, action, lastModifiedBy);
+            log.info("Запись в журнал аудита записи: AppointmentId={}, Action={}, ChangedBy={}",
+                    appointmentId, action, changedBy);
 
         } catch (Exception e) {
             log.error("Ошибка при записи в журнал аудита записи", e);

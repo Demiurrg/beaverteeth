@@ -18,7 +18,7 @@ public class AppointmentDTO {
     private AppointmentStatus status;
     private String notes;
     private LocalDateTime createdAt;
-    private LocalDateTime lastModifiedAt;
+    private LocalDateTime changedAt;
 
     // Информация для отображения (заполняется сервисом)
     private String doctorName;

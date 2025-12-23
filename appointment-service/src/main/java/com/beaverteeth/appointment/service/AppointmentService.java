@@ -30,11 +30,17 @@ public class AppointmentService {
     private static final int APPOINTMENT_DURATION_HOURS = 2;
 
     public AppointmentDTO createAppointment(CreateAppointmentRequest request) {
-        String createdBy = "system"; // Временное значение, нужно реализовать получение
+        String createdBy = "system";
 
         // Проверяем существование врача и пациента
         timeSlotService.validateDoctorExists(request.getDoctorId());
         timeSlotService.validatePatientExists(request.getPatientId());
+
+        // ПРОВЕРКА ОТПУСКА - ДОБАВИТЬ ЭТУ ПРОВЕРКУ
+        LocalDate appointmentDate = request.getStartTime().toLocalDate();
+        if (timeSlotService.isDoctorOnVacation(request.getDoctorId(), appointmentDate)) {
+            throw new IllegalArgumentException("Врач в отпуске на выбранную дату");
+        }
 
         LocalDateTime endTime = request.getStartTime().plusHours(APPOINTMENT_DURATION_HOURS);
 
@@ -64,13 +70,13 @@ public class AppointmentService {
                 .build();
 
         appointment.setCreatedBy(createdBy);
-        appointment.setLastModifiedBy(createdBy);
+        appointment.setChangedBy(createdBy);
 
         Appointment savedAppointment = appointmentRepository.save(appointment);
         log.info("Создана запись на прием: врач={}, пациент={}, время={}",
                 request.getDoctorId(), request.getPatientId(), request.getStartTime());
 
-        // ЗАПИСЬ В ЖУРНАЛ
+        // Запись в журнал
         auditService.logAppointmentCreation(savedAppointment, createdBy);
 
         return convertToDTO(savedAppointment);
@@ -82,7 +88,7 @@ public class AppointmentService {
 
         String oldStatus = appointment.getStatus().name();
         appointment.setStatus(AppointmentStatus.CANCELLED);
-        appointment.setLastModifiedBy("system"); // Нужно получить из запроса
+        appointment.setChangedBy("system"); // Нужно получить из запроса
 
         appointmentRepository.save(appointment);
         log.info("Запись отменена: ID={}", id);
@@ -97,7 +103,7 @@ public class AppointmentService {
 
         String oldStatus = appointment.getStatus().name();
         appointment.setStatus(AppointmentStatus.COMPLETED);
-        appointment.setLastModifiedBy("system"); // Нужно получить из запроса
+        appointment.setChangedBy("system"); // Нужно получить из запроса
 
         appointmentRepository.save(appointment);
         log.info("Запись завершена: ID={}", id);
@@ -134,7 +140,7 @@ public class AppointmentService {
 
         appointment.setStartTime(newStartTime);
         appointment.setEndTime(newEndTime);
-        appointment.setLastModifiedBy(modifiedBy);
+        appointment.setChangedBy(modifiedBy);
 
         Appointment updatedAppointment = appointmentRepository.save(appointment);
 
@@ -207,7 +213,7 @@ public class AppointmentService {
                 .status(appointment.getStatus())
                 .notes(appointment.getNotes())
                 .createdAt(appointment.getCreatedAt())
-                .lastModifiedAt(appointment.getLastModifiedAt())
+                .changedAt(appointment.getChangedAt())
                 .build();
 
         // Получаем дополнительную информацию

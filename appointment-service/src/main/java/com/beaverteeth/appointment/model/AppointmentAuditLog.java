@@ -25,12 +25,12 @@ public class AppointmentAuditLog {
     @Column(name = "action", nullable = false, length = 20)
     private String action; // CREATE, UPDATE_STATUS, CANCELLED, COMPLETED, RESCHEDULE
 
-    @Column(name = "last_modified_by", nullable = false, length = 100)
-    private String lastModifiedBy;
+    @Column(name = "changed_by", nullable = false, length = 100)
+    private String changedBy;
 
     @CreationTimestamp
-    @Column(name = "last_modified_at", nullable = false, updatable = false)
-    private LocalDateTime lastModifiedAt;
+    @Column(name = "changed_at", nullable = false, updatable = false)
+    private LocalDateTime changedAt;
 
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;

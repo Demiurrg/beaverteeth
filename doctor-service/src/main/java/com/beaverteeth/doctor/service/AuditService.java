@@ -45,8 +45,8 @@ public class AuditService {
     // Для обратной совместимости с существующим кодом
     @Async
     public void logDoctorChange(Doctor doctor, String action) {
-        String changedBy = doctor.getLastModifiedBy() != null ?
-                doctor.getLastModifiedBy() :
+        String changedBy = doctor.getChangedBy() != null ?
+                doctor.getChangedBy() :
                 doctor.getCreatedBy();
 
         String description = getDefaultDescription(action, doctor.getFullName());
