@@ -2,6 +2,7 @@ package com.beaverteeth.appointment.service;
 
 import com.beaverteeth.appointment.model.Appointment;
 import com.beaverteeth.appointment.model.AppointmentStatus;
+import com.beaverteeth.appointment.model.dto.AppointmentConfirmationRequest;
 import com.beaverteeth.appointment.model.dto.AppointmentDTO;
 import com.beaverteeth.appointment.model.dto.CreateAppointmentRequest;
 import com.beaverteeth.appointment.repository.AppointmentRepository;
@@ -26,6 +27,7 @@ public class AppointmentService {
     private final AppointmentRepository appointmentRepository;
     private final TimeSlotService timeSlotService;
     private final AuditService auditService;
+    private final TelegramNotificationService telegramNotificationService;
 
     private static final int APPOINTMENT_DURATION_HOURS = 2;
 
@@ -36,7 +38,7 @@ public class AppointmentService {
         timeSlotService.validateDoctorExists(request.getDoctorId());
         timeSlotService.validatePatientExists(request.getPatientId());
 
-        // ПРОВЕРКА ОТПУСКА - ДОБАВИТЬ ЭТУ ПРОВЕРКУ
+        // ПРОВЕРКА ОТПУСКА
         LocalDate appointmentDate = request.getStartTime().toLocalDate();
         if (timeSlotService.isDoctorOnVacation(request.getDoctorId(), appointmentDate)) {
             throw new IllegalArgumentException("Врач в отпуске на выбранную дату");
@@ -52,34 +54,121 @@ public class AppointmentService {
                         endTime
                 );
 
-        log.info("Проверка конфликтов для врача {} с {} до {}. Найдено конфликтов: {}",
-                request.getDoctorId(), request.getStartTime(), endTime, conflictingAppointments.size());
-
         if (!conflictingAppointments.isEmpty()) {
             throw new IllegalArgumentException("Время уже занято");
         }
 
-        // Создаем запись
+        // Получаем chatId пациента (если есть)
+        Long patientChatId = timeSlotService.getPatientChatId(request.getPatientId());
+
+        // Создаем запись со статусом PENDING
         Appointment appointment = Appointment.builder()
                 .doctorId(request.getDoctorId())
                 .patientId(request.getPatientId())
                 .startTime(request.getStartTime())
                 .endTime(endTime)
-                .status(AppointmentStatus.SCHEDULED)
+                .status(AppointmentStatus.PENDING) // СТАТУС PENDING
                 .notes(request.getNotes())
+                .patientChatId(patientChatId)
                 .build();
 
         appointment.setCreatedBy(createdBy);
         appointment.setChangedBy(createdBy);
 
         Appointment savedAppointment = appointmentRepository.save(appointment);
-        log.info("Создана запись на прием: врач={}, пациент={}, время={}",
+        log.info("Создана запись на прием (ожидает подтверждения): врач={}, пациент={}, время={}",
                 request.getDoctorId(), request.getPatientId(), request.getStartTime());
 
         // Запись в журнал
         auditService.logAppointmentCreation(savedAppointment, createdBy);
 
         return convertToDTO(savedAppointment);
+    }
+
+    public AppointmentDTO confirmAppointment(Long id, AppointmentConfirmationRequest request) {
+        Appointment appointment = appointmentRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Запись не найдена с ID: " + id));
+
+        // Сохраняем старый статус для аудита
+        AppointmentStatus oldStatus = appointment.getStatus();
+
+        if ("confirm".equalsIgnoreCase(request.getAction())) {
+            appointment.setStatus(AppointmentStatus.CONFIRMED);
+        } else if ("reject".equalsIgnoreCase(request.getAction())) {
+            appointment.setStatus(AppointmentStatus.REJECTED);
+        } else {
+            throw new IllegalArgumentException("Некорректное действие: используйте 'confirm' или 'reject'");
+        }
+
+        appointment.setConfirmedBy(request.getConfirmedBy());
+        appointment.setConfirmationNotes(request.getNotes());
+        appointment.setConfirmationDate(LocalDateTime.now());
+        appointment.setChangedBy(request.getConfirmedBy());
+
+        Appointment updatedAppointment = appointmentRepository.save(appointment);
+
+        // Запись в журнал аудита
+        auditService.logStatusChange(updatedAppointment, oldStatus.name(),
+                updatedAppointment.getStatus().name(),
+                request.getConfirmedBy());
+
+        // Отправляем уведомление пациенту через Telegram
+        telegramNotificationService.sendAppointmentConfirmation(
+                updatedAppointment,
+                oldStatus,
+                updatedAppointment.getStatus()
+        );
+
+        log.info("Запись {} {} пользователем {}",
+                id, request.getAction(), request.getConfirmedBy());
+
+        return convertToDTO(updatedAppointment);
+    }
+
+    // НОВЫЕ МЕТОДЫ ДЛЯ ПОЛУЧЕНИЯ СПИСКОВ
+    public List<AppointmentDTO> getPendingAppointments() {
+        List<Appointment> appointments = appointmentRepository.findByStatus(
+                AppointmentStatus.PENDING);
+        return appointments.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    public List<AppointmentDTO> getConfirmedAppointments() {
+        List<Appointment> appointments = appointmentRepository.findByStatus(
+                AppointmentStatus.CONFIRMED);
+        return appointments.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    // Обновить метод convertToDTO
+    private AppointmentDTO convertToDTO(Appointment appointment) {
+        AppointmentDTO dto = AppointmentDTO.builder()
+                .id(appointment.getId())
+                .doctorId(appointment.getDoctorId())
+                .patientId(appointment.getPatientId())
+                .startTime(appointment.getStartTime())
+                .endTime(appointment.getEndTime())
+                .status(appointment.getStatus())
+                .notes(appointment.getNotes())
+                .createdAt(appointment.getCreatedAt())
+                .changedAt(appointment.getChangedAt())
+                .confirmedBy(appointment.getConfirmedBy())
+                .confirmationNotes(appointment.getConfirmationNotes())
+                .confirmationDate(appointment.getConfirmationDate())
+                .patientChatId(appointment.getPatientChatId())
+                .build();
+
+        // Получаем дополнительную информацию
+        try {
+            dto.setDoctorName(timeSlotService.getDoctorName(appointment.getDoctorId()));
+            dto.setPatientName(timeSlotService.getPatientName(appointment.getPatientId()));
+        } catch (Exception e) {
+            log.warn("Не удалось получить информацию о враче/пациенте: {}", e.getMessage());
+        }
+
+        return dto;
     }
 
     public void cancelAppointment(Long id) {
@@ -201,29 +290,5 @@ public class AppointmentService {
         return appointments.stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
-    }
-
-    private AppointmentDTO convertToDTO(Appointment appointment) {
-        AppointmentDTO dto = AppointmentDTO.builder()
-                .id(appointment.getId())
-                .doctorId(appointment.getDoctorId())
-                .patientId(appointment.getPatientId())
-                .startTime(appointment.getStartTime())
-                .endTime(appointment.getEndTime())
-                .status(appointment.getStatus())
-                .notes(appointment.getNotes())
-                .createdAt(appointment.getCreatedAt())
-                .changedAt(appointment.getChangedAt())
-                .build();
-
-        // Получаем дополнительную информацию
-        try {
-            dto.setDoctorName(timeSlotService.getDoctorName(appointment.getDoctorId()));
-            dto.setPatientName(timeSlotService.getPatientName(appointment.getPatientId()));
-        } catch (Exception e) {
-            log.warn("Не удалось получить информацию о враче/пациенте: {}", e.getMessage());
-        }
-
-        return dto;
     }
 }

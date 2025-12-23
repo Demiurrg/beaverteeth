@@ -6,6 +6,7 @@ import com.beaverteeth.telegram.service.PatientApiClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
 import org.telegram.telegrambots.bots.DefaultBotOptions;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -32,6 +33,11 @@ public class ClinicTelegramBot extends TelegramLongPollingBot {
 
     @Value("${telegram.bot.token}")
     private String botToken;
+
+    @Value("${doctor.service.url:http://localhost:8082")
+    private String patientServiceUrl;
+
+    private RestTemplate restTemplate;
 
     public ClinicTelegramBot(
             UserSessionManager sessionManager,
@@ -159,46 +165,6 @@ public class ClinicTelegramBot extends TelegramLongPollingBot {
             showMainMenu(chatId);
         } else if (callbackData.equals("show_doctor_details")) {
             showDoctorsWithDetails(chatId);
-        }
-    }
-
-    private void handleStart(Long chatId, String telegramUsername) {
-        log.info("🟢 Обработка /start для chatId={}, username={}", chatId, telegramUsername);
-
-        UserSession session = sessionManager.getSession(chatId);
-
-        // Сохраняем username в сессии
-        session.getData().put("telegramUsername", telegramUsername);
-
-        // Проверяем, зарегистрирован ли пользователь
-        if (telegramUsername == null) {
-            sendMessage(chatId, "❌ У вас не установлен Telegram username. " +
-                    "Установите его в настройках Telegram и попробуйте снова.");
-            return;
-        }
-
-        // Проверяем в базе данных
-        Map<String, Object> patient = patientApiClient.getPatientByTelegramUsername(telegramUsername);
-
-        if (patient != null) {
-            // Пользователь уже зарегистрирован
-            session.setState(BotState.MAIN_MENU);
-            session.getData().put("patientId", patient.get("id"));
-            session.getData().put("patientFullName", patient.get("fullName"));
-            session.getData().put("patientPhone", patient.get("phone"));
-
-            sessionManager.updateSession(session);
-
-            sendMessage(chatId, "✅ Вы уже зарегистрированы! Добро пожаловать.");
-            showMainMenu(chatId);
-        } else {
-            // Начинаем процесс регистрации
-            session.setState(BotState.WAITING_FULL_NAME);
-            sessionManager.updateSession(session);
-
-            sendMessage(chatId, "👋 Добро пожаловать! Вы не зарегистрированы в системе.\n" +
-                    "Давайте пройдем регистрацию.\n\n" +
-                    "Введите ваше ФИО (например: Иванов Иван Иванович):");
         }
     }
 
@@ -801,47 +767,6 @@ public class ClinicTelegramBot extends TelegramLongPollingBot {
         completeRegistration(chatId, session);
     }
 
-    private void completeRegistration(Long chatId, UserSession session) {
-        try {
-            // Получаем Telegram username
-            String telegramUsername = (String) session.getData().get("telegramUsername");
-
-            // Формируем данные для отправки
-            Map<String, Object> patientData = Map.of(
-                    "fullName", session.getData().get("fullName"),
-                    "age", session.getData().get("age"),
-                    "address", session.getData().get("address"),
-                    "phone", session.getData().get("phone"),
-                    "email", session.getData().get("email"),
-                    "telegramUsername", telegramUsername,
-                    "notes", "Зарегистрирован через Telegram бот",
-                    "createdBy", "telegram_bot"
-            );
-
-            // Отправляем запрос на создание пациента
-            Map<String, Object> createdPatient = patientApiClient.createPatient(patientData);
-
-            if (createdPatient != null) {
-                // Сохраняем ID пациента в сессии
-                session.getData().put("patientId", createdPatient.get("id"));
-                session.setState(BotState.MAIN_MENU);
-                sessionManager.updateSession(session);
-
-                sendMessage(chatId, "🎉 Регистрация успешно завершена!\n" +
-                        "Теперь вы можете пользоваться всеми функциями бота.");
-                showMainMenu(chatId);
-            } else {
-                throw new RuntimeException("Не удалось создать пациента");
-            }
-
-        } catch (Exception e) {
-            log.error("Ошибка при регистрации: {}", e.getMessage());
-            sendMessage(chatId, "❌ Произошла ошибка при регистрации. Попробуйте снова.");
-            session.setState(BotState.WAITING_FULL_NAME);
-            sessionManager.updateSession(session);
-        }
-    }
-
     private void handleChoosingDoctor(Long chatId, UserSession session, String text) {
         try {
             // Пробуем распознать номер врача
@@ -902,5 +827,96 @@ public class ClinicTelegramBot extends TelegramLongPollingBot {
             return null;
         }
         return safeToLong(session.getData().get(key));
+    }
+
+    private void handleStart(Long chatId, String telegramUsername) {
+        log.info("🟢 Обработка /start для chatId={}, username={}", chatId, telegramUsername);
+
+        UserSession session = sessionManager.getSession(chatId);
+        session.getData().put("telegramUsername", telegramUsername);
+
+        if (telegramUsername == null) {
+            sendMessage(chatId, "❌ У вас не установлен Telegram username.");
+            return;
+        }
+
+        Map<String, Object> patient = patientApiClient.getPatientByTelegramUsername(telegramUsername);
+
+        if (patient != null) {
+            // Пользователь уже зарегистрирован - ОБНОВЛЯЕМ chatId
+            Long patientId = ((Number) patient.get("id")).longValue();
+            updatePatientChatId(patientId, chatId); // НОВЫЙ МЕТОД
+
+            session.setState(BotState.MAIN_MENU);
+            session.getData().put("patientId", patientId);
+            session.getData().put("patientFullName", patient.get("fullName"));
+            session.getData().put("patientChatId", chatId); // Сохраняем в сессии
+
+            sessionManager.updateSession(session);
+
+            sendMessage(chatId, "✅ Вы уже зарегистрированы! Добро пожаловать.");
+            showMainMenu(chatId);
+        } else {
+            // Начинаем регистрацию
+            session.setState(BotState.WAITING_FULL_NAME);
+            session.getData().put("patientChatId", chatId); // Сохраняем chatId для будущего пациента
+            sessionManager.updateSession(session);
+
+            sendMessage(chatId, "👋 Добро пожаловать! Пройдем регистрацию...");
+            sendMessage(chatId, "Введите ваше ФИО:");
+        }
+    }
+
+    private void updatePatientChatId(Long patientId, Long chatId) {
+        try {
+            String url = patientServiceUrl + "/api/patients/" + patientId + "/chat-id";
+
+            Map<String, Object> request = Map.of(
+                    "telegramChatId", chatId,
+                    "modifiedBy", "telegram_bot"
+            );
+
+            restTemplate.put(url, request);
+            log.info("Обновлен telegramChatId для пациента {}: {}", patientId, chatId);
+
+        } catch (Exception e) {
+            log.warn("Не удалось обновить chatId для пациента {}: {}", patientId, e.getMessage());
+        }
+    }
+
+    private void completeRegistration(Long chatId, UserSession session) {
+        try {
+            String telegramUsername = (String) session.getData().get("telegramUsername");
+            Long patientChatId = (Long) session.getData().get("patientChatId");
+
+            Map<String, Object> patientData = Map.of(
+                    "fullName", session.getData().get("fullName"),
+                    "age", session.getData().get("age"),
+                    "address", session.getData().get("address"),
+                    "phone", session.getData().get("phone"),
+                    "email", session.getData().get("email"),
+                    "telegramUsername", telegramUsername,
+                    "telegramChatId", patientChatId, // ДОБАВЛЯЕМ CHAT ID
+                    "notes", "Зарегистрирован через Telegram бот",
+                    "createdBy", "telegram_bot"
+            );
+
+            Map<String, Object> createdPatient = patientApiClient.createPatient(patientData);
+
+            if (createdPatient != null) {
+                session.getData().put("patientId", createdPatient.get("id"));
+                session.setState(BotState.MAIN_MENU);
+                sessionManager.updateSession(session);
+
+                sendMessage(chatId, "🎉 Регистрация успешно завершена!");
+                showMainMenu(chatId);
+            }
+
+        } catch (Exception e) {
+            log.error("Ошибка при регистрации: {}", e.getMessage());
+            sendMessage(chatId, "❌ Произошла ошибка при регистрации.");
+            session.setState(BotState.WAITING_FULL_NAME);
+            sessionManager.updateSession(session);
+        }
     }
 }

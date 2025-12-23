@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/patients")
@@ -33,6 +34,18 @@ public class PatientController {
     public ResponseEntity<PatientDTO> getPatient(@PathVariable Long id) {
         PatientDTO patientDTO = patientService.getPatientById(id);
         return ResponseEntity.ok(patientDTO);
+    }
+
+    @PutMapping("/{id}/chat-id")
+    @Operation(summary = "Обновить Telegram chat ID пациента")
+    public ResponseEntity<Void> updatePatientChatId(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> request,
+            @RequestHeader("X-User-Id") String userId) {
+
+        Long telegramChatId = ((Number) request.get("telegramChatId")).longValue();
+        patientService.updatePatientChatId(id, telegramChatId, userId);
+        return ResponseEntity.ok().build();
     }
 
     @GetMapping("/phone/{phone}")
