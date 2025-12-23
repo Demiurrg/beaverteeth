@@ -2,7 +2,7 @@ package com.beaverteeth.doctor.service;
 
 import com.beaverteeth.doctor.model.Doctor;
 import com.beaverteeth.doctor.model.dto.CreateDoctorRequest;
-import com.beaverteeth.doctor.model.dto.DoctorDTO;
+import com.beaverteeth.doctor.model.dto.DoctorDto;
 import com.beaverteeth.doctor.model.Specialty;
 import com.beaverteeth.doctor.repository.DoctorRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -23,7 +23,7 @@ public class DoctorService {
     private final ModelMapper modelMapper;
     private final AuditService auditService;
 
-    public DoctorDTO createDoctor(CreateDoctorRequest request) {
+    public DoctorDto createDoctor(CreateDoctorRequest request) {
         Doctor doctor = modelMapper.map(request, Doctor.class);
         doctor.setIsActive(true);
         doctor.setChangedBy(request.getCreatedBy());
@@ -38,7 +38,7 @@ public class DoctorService {
         return convertToDTO(savedDoctor);
     }
 
-    public List<DoctorDTO> searchDoctorsByLastName(String lastName) {
+    public List<DoctorDto> searchDoctorsByLastName(String lastName) {
         // Ищем врачей по фамилии (активных)
         List<Doctor> doctors = doctorRepository.findByLastNameContainingIgnoreCaseAndIsActiveTrue(lastName);
 
@@ -52,25 +52,25 @@ public class DoctorService {
                 .collect(Collectors.toList());
     }
 
-    public DoctorDTO getDoctorById(Long id) {
+    public DoctorDto getDoctorById(Long id) {
         Doctor doctor = doctorRepository.findByIdAndIsActiveTrue(id)
                 .orElseThrow(() -> new EntityNotFoundException("Врач не найден с ID: " + id));
         return convertToDTO(doctor);
     }
 
-    public List<DoctorDTO> getAllDoctors() {
+    public List<DoctorDto> getAllDoctors() {
         return doctorRepository.findByIsActiveTrue().stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
 
-    public List<DoctorDTO> getDoctorsBySpecialty(Specialty specialty) {
+    public List<DoctorDto> getDoctorsBySpecialty(Specialty specialty) {
         return doctorRepository.findBySpecialtyAndIsActiveTrue(specialty).stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
 
-    public DoctorDTO updateDoctor(Long id, DoctorDTO doctorDTO, String modifiedBy) {
+    public DoctorDto updateDoctor(Long id, DoctorDto doctorDTO, String modifiedBy) {
         Doctor existingDoctor = doctorRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Врач не найден"));
 
@@ -113,7 +113,7 @@ public class DoctorService {
                 "Врач отключен: " + doctor.getFullName());
     }
 
-    public DoctorDTO convertToDTO(Doctor doctor) {
-        return modelMapper.map(doctor, DoctorDTO.class);
+    public DoctorDto convertToDTO(Doctor doctor) {
+        return modelMapper.map(doctor, DoctorDto.class);
     }
 }

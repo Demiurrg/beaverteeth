@@ -2,7 +2,7 @@ package com.beaverteeth.patient.service;
 
 import com.beaverteeth.patient.model.Patient;
 import com.beaverteeth.patient.model.dto.CreatePatientRequest;
-import com.beaverteeth.patient.model.dto.PatientDTO;
+import com.beaverteeth.patient.model.dto.PatientDto;
 import com.beaverteeth.patient.repository.PatientRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +24,7 @@ public class PatientService {
     private final ModelMapper modelMapper;
     private final AuditService auditService;
 
-    public PatientDTO createPatient(CreatePatientRequest request) {
+    public PatientDto createPatient(CreatePatientRequest request) {
         log.info("Создание пациента: {}", request.getFullName());
 
         // Проверки уникальности...
@@ -67,13 +67,13 @@ public class PatientService {
         log.info("Обновлен telegramChatId для пациента {}: {}", id, telegramChatId);
     }
 
-    public PatientDTO getPatientWithChatId(Long id) {
+    public PatientDto getPatientWithChatId(Long id) {
         Patient patient = patientRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Пациент не найден с ID: " + id));
         return convertToDTO(patient);
     }
 
-    public PatientDTO updatePatient(Long id, PatientDTO patientDTO, String modifiedBy) {
+    public PatientDto updatePatient(Long id, PatientDto patientDTO, String modifiedBy) {
         Patient existingPatient = patientRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Пациент не найден с ID: " + id));
 
@@ -150,13 +150,13 @@ public class PatientService {
     }
 
     // Остальные методы остаются БЕЗ ИЗМЕНЕНИЙ:
-    public PatientDTO getPatientById(Long id) {
+    public PatientDto getPatientById(Long id) {
         Patient patient = patientRepository.findByIdAndIsActiveTrue(id)
                 .orElseThrow(() -> new EntityNotFoundException("Пациент не найден с ID: " + id));
         return convertToDTO(patient);
     }
 
-    public PatientDTO getPatientByPhone(String phone) {
+    public PatientDto getPatientByPhone(String phone) {
         Patient patient = patientRepository.findByPhone(phone)
                 .orElseThrow(() -> new EntityNotFoundException("Пациент не найден с телефоном: " + phone));
 
@@ -167,7 +167,7 @@ public class PatientService {
         return convertToDTO(patient);
     }
 
-    public PatientDTO getPatientByTelegramUsername(String telegramUsername) {
+    public PatientDto getPatientByTelegramUsername(String telegramUsername) {
         Patient patient = patientRepository.findByTelegramUsername(telegramUsername)
                 .orElseThrow(() -> new EntityNotFoundException("Пациент не найден с Telegram username: " + telegramUsername));
 
@@ -178,20 +178,20 @@ public class PatientService {
         return convertToDTO(patient);
     }
 
-    public List<PatientDTO> getAllPatients() {
+    public List<PatientDto> getAllPatients() {
         return patientRepository.findByIsActiveTrue().stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
 
-    public List<PatientDTO> searchPatientsByName(String name) {
+    public List<PatientDto> searchPatientsByName(String name) {
         return patientRepository.findByFullNameContainingIgnoreCase(name).stream()
                 .filter(Patient::getIsActive)
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
 
-    public PatientDTO convertToDTO(Patient patient) {
-        return modelMapper.map(patient, PatientDTO.class);
+    public PatientDto convertToDTO(Patient patient) {
+        return modelMapper.map(patient, PatientDto.class);
     }
 }

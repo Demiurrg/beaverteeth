@@ -1,7 +1,7 @@
 package com.beaverteeth.doctor.controller;
 
 import com.beaverteeth.doctor.model.dto.CreateDoctorRequest;
-import com.beaverteeth.doctor.model.dto.DoctorDTO;
+import com.beaverteeth.doctor.model.dto.DoctorDto;
 import com.beaverteeth.doctor.model.Specialty;
 import com.beaverteeth.doctor.service.DoctorService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -24,47 +24,47 @@ public class DoctorController {
 
     @PostMapping
     @Operation(summary = "Создать нового врача")
-    public ResponseEntity<DoctorDTO> createDoctor(@Valid @RequestBody CreateDoctorRequest request) {
-        DoctorDTO doctorDTO = doctorService.createDoctor(request);
+    public ResponseEntity<DoctorDto> createDoctor(@Valid @RequestBody CreateDoctorRequest request) {
+        DoctorDto doctorDTO = doctorService.createDoctor(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(doctorDTO);
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Получить врача по ID")
-    public ResponseEntity<DoctorDTO> getDoctor(@PathVariable Long id) {
-        DoctorDTO doctorDTO = doctorService.getDoctorById(id);
+    public ResponseEntity<DoctorDto> getDoctor(@PathVariable Long id) {
+        DoctorDto doctorDTO = doctorService.getDoctorById(id);
         return ResponseEntity.ok(doctorDTO);
     }
 
     @GetMapping
     @Operation(summary = "Получить всех врачей")
-    public ResponseEntity<List<DoctorDTO>> getAllDoctors() {
-        List<DoctorDTO> doctors = doctorService.getAllDoctors();
+    public ResponseEntity<List<DoctorDto>> getAllDoctors() {
+        List<DoctorDto> doctors = doctorService.getAllDoctors();
         return ResponseEntity.ok(doctors);
     }
 
     @GetMapping("/search")
     @Operation(summary = "Поиск врача по фамилии")
-    public ResponseEntity<List<DoctorDTO>> searchDoctors(@RequestParam String lastName) {
-        List<DoctorDTO> doctors = doctorService.searchDoctorsByLastName(lastName);
+    public ResponseEntity<List<DoctorDto>> searchDoctors(@RequestParam String lastName) {
+        List<DoctorDto> doctors = doctorService.searchDoctorsByLastName(lastName);
         return ResponseEntity.ok(doctors);
     }
 
     @GetMapping("/specialty/{specialty}")
     @Operation(summary = "Получить врачей по специализации")
-    public ResponseEntity<List<DoctorDTO>> getDoctorsBySpecialty(@PathVariable Specialty specialty) {
-        List<DoctorDTO> doctors = doctorService.getDoctorsBySpecialty(specialty);
+    public ResponseEntity<List<DoctorDto>> getDoctorsBySpecialty(@PathVariable Specialty specialty) {
+        List<DoctorDto> doctors = doctorService.getDoctorsBySpecialty(specialty);
         return ResponseEntity.ok(doctors);
     }
 
     @PutMapping("/{id}")
     @Operation(summary = "Обновить данные врача")
-    public ResponseEntity<DoctorDTO> updateDoctor(
+    public ResponseEntity<DoctorDto> updateDoctor(
             @PathVariable Long id,
-            @Valid @RequestBody DoctorDTO doctorDTO,
+            @Valid @RequestBody DoctorDto doctorDTO,
             @RequestHeader("X-User-Id") String userId) {
 
-        DoctorDTO updatedDoctor = doctorService.updateDoctor(id, doctorDTO, userId);
+        DoctorDto updatedDoctor = doctorService.updateDoctor(id, doctorDTO, userId);
         return ResponseEntity.ok(updatedDoctor);
     }
 

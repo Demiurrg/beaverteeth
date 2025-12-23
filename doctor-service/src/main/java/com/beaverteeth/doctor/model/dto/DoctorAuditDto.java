@@ -1,4 +1,4 @@
-package com.beaverteeth.patient.model.dto;
+package com.beaverteeth.doctor.model.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,9 +11,9 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class PatientAuditDTO {
+public class DoctorAuditDto {
     private Long id;
-    private Long patientId;
+    private Long doctorId;
     private String action;
     private String changedBy;
     private LocalDateTime changedAt;
