@@ -6,7 +6,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,13 +22,11 @@ public class PatientAuditController {
 
     @GetMapping
     @Operation(summary = "Получить журнал изменений пациента")
-    public ResponseEntity<List<PatientAuditDto>> getAuditHistory(@PathVariable Long patientId) {
+    public List<PatientAuditDto> getAuditHistory(@PathVariable Long patientId) {
         var auditLogs = auditService.getPatientHistory(patientId);
 
-        var auditDTOs = auditLogs.stream()
+        return auditLogs.stream()
                 .map(log -> modelMapper.map(log, PatientAuditDto.class))
                 .collect(Collectors.toList());
-
-        return ResponseEntity.ok(auditDTOs);
     }
 }

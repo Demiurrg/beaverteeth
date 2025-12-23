@@ -6,11 +6,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -28,50 +27,44 @@ public class ExportController {
 
     @PostMapping("/export")
     @Operation(summary = "Выполнить экспорт всех данных")
-    public ResponseEntity<String> exportAllData() {
+    public String exportAllData() {
         try {
             String exportFilePath = exportService.exportAllData();
-            return ResponseEntity.ok("Экспорт успешно завершен. Файл: " + exportFilePath);
+            return "Экспорт успешно завершен. Файл: " + exportFilePath;
         } catch (IOException e) {
-            return ResponseEntity.internalServerError()
-                    .body("Ошибка при экспорте данных: " + e.getMessage());
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Ошибка при экспорте данных: " + e.getMessage());
         }
     }
 
     @GetMapping("/files")
     @Operation(summary = "Получить список файлов экспорта")
-    public ResponseEntity<List<String>> getExportFiles() {
+    public List<String> getExportFiles() {
         try {
-            List<String> files = exportService.getExportFiles();
-            return ResponseEntity.ok(files);
+            return exportService.getExportFiles();
         } catch (IOException e) {
-            return ResponseEntity.internalServerError().build();
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Ошибка при получении списка файлов: " + e.getMessage());
         }
     }
 
     @GetMapping("/download/{fileName}")
     @Operation(summary = "Скачать файл экспорта")
-    public ResponseEntity<Resource> downloadExportFile(@PathVariable String fileName) {
+    public Resource downloadExportFile(@PathVariable String fileName) {
         try {
             byte[] fileContent = exportService.downloadExportFile(fileName);
 
-            ByteArrayResource resource = new ByteArrayResource(fileContent);
-
-            return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_DISPOSITION,
-                            "attachment; filename=\"" + fileName + "\"")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .contentLength(fileContent.length)
-                    .body(resource);
+            return new ByteArrayResource(fileContent);
 
         } catch (IOException e) {
-            return ResponseEntity.notFound().build();
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "Файл не найден: " + fileName);
         }
     }
 
     @PostMapping("/restore/upload")
     @Operation(summary = "Восстановить данные из загруженного файла")
-    public ResponseEntity<String> restoreFromUpload(@RequestParam("file") MultipartFile file) {
+    public String restoreFromUpload(@RequestParam("file") MultipartFile file) {
         try {
             // Сохраняем загруженный файл временно
             String tempFilePath = saveUploadedFile(file);
@@ -82,23 +75,23 @@ public class ExportController {
             // Удаляем временный файл
             Files.deleteIfExists(Paths.get(tempFilePath));
 
-            return ResponseEntity.ok("Данные успешно восстановлены из файла: " + file.getOriginalFilename());
+            return "Данные успешно восстановлены из файла: " + file.getOriginalFilename();
 
         } catch (IOException e) {
-            return ResponseEntity.internalServerError()
-                    .body("Ошибка при восстановлении данных: " + e.getMessage());
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Ошибка при восстановлении данных: " + e.getMessage());
         }
     }
 
     @PostMapping("/restore/{fileName}")
     @Operation(summary = "Восстановить данные из существующего файла")
-    public ResponseEntity<String> restoreFromExistingFile(@PathVariable String fileName) {
+    public String restoreFromExistingFile(@PathVariable String fileName) {
         try {
             exportService.restoreFromFile("./exports/" + fileName);
-            return ResponseEntity.ok("Данные успешно восстановлены из файла: " + fileName);
+            return "Данные успешно восстановлены из файла: " + fileName;
         } catch (IOException e) {
-            return ResponseEntity.internalServerError()
-                    .body("Ошибка при восстановлении данных: " + e.getMessage());
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Ошибка при восстановлении данных: " + e.getMessage());
         }
     }
 
