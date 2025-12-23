@@ -58,8 +58,13 @@ public class AppointmentService {
             throw new IllegalArgumentException("Время уже занято");
         }
 
-        // Получаем chatId пациента (если есть)
-        Long patientChatId = timeSlotService.getPatientChatId(request.getPatientId());
+        // Используем patientChatId из запроса, если он есть
+        Long patientChatId = request.getPatientChatId();
+
+        // Если не передан в запросе, пробуем получить из профиля пациента
+        if (patientChatId == null) {
+            patientChatId = timeSlotService.getPatientChatId(request.getPatientId());
+        }
 
         // Создаем запись со статусом PENDING
         Appointment appointment = Appointment.builder()
@@ -67,17 +72,17 @@ public class AppointmentService {
                 .patientId(request.getPatientId())
                 .startTime(request.getStartTime())
                 .endTime(endTime)
-                .status(AppointmentStatus.PENDING) // СТАТУС PENDING
+                .status(AppointmentStatus.PENDING)
                 .notes(request.getNotes())
-                .patientChatId(patientChatId)
+                .patientChatId(patientChatId) // Сохраняем chatId
                 .build();
 
         appointment.setCreatedBy(createdBy);
         appointment.setChangedBy(createdBy);
 
         Appointment savedAppointment = appointmentRepository.save(appointment);
-        log.info("Создана запись на прием (ожидает подтверждения): врач={}, пациент={}, время={}",
-                request.getDoctorId(), request.getPatientId(), request.getStartTime());
+        log.info("Создана запись на прием (ожидает подтверждения): врач={}, пациент={}, время={}, chatId={}",
+                request.getDoctorId(), request.getPatientId(), request.getStartTime(), patientChatId);
 
         // Запись в журнал
         auditService.logAppointmentCreation(savedAppointment, createdBy);
@@ -125,7 +130,6 @@ public class AppointmentService {
         return convertToDTO(updatedAppointment);
     }
 
-    // НОВЫЕ МЕТОДЫ ДЛЯ ПОЛУЧЕНИЯ СПИСКОВ
     public List<AppointmentDTO> getPendingAppointments() {
         List<Appointment> appointments = appointmentRepository.findByStatus(
                 AppointmentStatus.PENDING);

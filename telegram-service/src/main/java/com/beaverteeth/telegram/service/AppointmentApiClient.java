@@ -51,7 +51,9 @@ public class AppointmentApiClient {
         return List.of();
     }
 
-    public Map<String, Object> createAppointment(Long doctorId, Long patientId, LocalDateTime startTime, String notes) {
+    public Map<String, Object> createAppointment(Long doctorId, Long patientId,
+                                                 LocalDateTime startTime, String notes,
+                                                 Long patientChatId) {
         try {
             String url = appointmentServiceUrl + "/api/appointments";
 
@@ -59,11 +61,12 @@ public class AppointmentApiClient {
                     "doctorId", doctorId,
                     "patientId", patientId,
                     "startTime", startTime.format(DateTimeFormatter.ISO_DATE_TIME),
-                    "notes", notes != null ? notes : "Запись через Telegram бот"
+                    "notes", notes != null ? notes : "Запись через Telegram бот",
+                    "patientChatId", patientChatId
             );
 
-            log.info("Создание записи: doctorId={}, patientId={}, time={}",
-                    doctorId, patientId, startTime);
+            log.info("Создание записи: doctorId={}, patientId={}, time={}, chatId={}",
+                    doctorId, patientId, startTime, patientChatId);
 
             ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
 

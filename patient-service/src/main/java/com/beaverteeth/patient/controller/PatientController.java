@@ -48,6 +48,13 @@ public class PatientController {
         return ResponseEntity.ok().build();
     }
 
+    @GetMapping("/{id}/with-chat")
+    @Operation(summary = "Получить пациента по ID с информацией о chatId")
+    public ResponseEntity<PatientDTO> getPatientWithChatId(@PathVariable Long id) {
+        PatientDTO patientDTO = patientService.getPatientWithChatId(id);
+        return ResponseEntity.ok(patientDTO);
+    }
+
     @GetMapping("/phone/{phone}")
     @Operation(summary = "Получить пациента по телефону")
     public ResponseEntity<PatientDTO> getPatientByPhone(@PathVariable String phone) {

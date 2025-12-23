@@ -21,4 +21,6 @@ public class CreateAppointmentRequest {
     private LocalDateTime startTime;
 
     private String notes;
+
+    private Long patientChatId;
 }
