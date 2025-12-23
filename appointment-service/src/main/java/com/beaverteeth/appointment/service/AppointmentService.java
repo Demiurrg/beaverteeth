@@ -159,7 +159,7 @@ public class AppointmentService {
     }
 
     // Обновить метод convertToDTO
-    private AppointmentDto convertToDTO(Appointment appointment) {
+    public AppointmentDto convertToDTO(Appointment appointment) {
         AppointmentDto dto = AppointmentDto.builder()
                 .id(appointment.getId())
                 .doctorId(appointment.getDoctorId())

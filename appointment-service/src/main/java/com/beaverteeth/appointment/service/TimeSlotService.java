@@ -36,7 +36,7 @@ public class TimeSlotService {
     private static final int WORKING_HOUR_END = 18;
     private static final int APPOINTMENT_DURATION_HOURS = 2;
 
-    boolean isDoctorOnVacation(Long doctorId, LocalDate date) {
+    public boolean isDoctorOnVacation(Long doctorId, LocalDate date) {
         try {
             String url = doctorServiceUrl + "/api/vacations/doctor/" + doctorId + "/check?date=" + date;
             ResponseEntity<Boolean> response = restTemplate.getForEntity(url, Boolean.class);

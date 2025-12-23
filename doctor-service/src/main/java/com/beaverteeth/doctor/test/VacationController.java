@@ -1,4 +1,4 @@
-package com.beaverteeth.doctor.controller;
+package com.beaverteeth.doctor.test;
 
 import com.beaverteeth.doctor.model.Vacation;
 import com.beaverteeth.doctor.model.dto.VacationRequest;

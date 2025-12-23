@@ -352,7 +352,7 @@ public class ExportService {
         }
     }
 
-    private String generateExportFileName() {
+    public String generateExportFileName() {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
         String timestamp = LocalDateTime.now().format(formatter);
         return "export_" + timestamp + ".json";
