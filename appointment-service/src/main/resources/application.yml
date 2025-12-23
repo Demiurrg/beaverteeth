@@ -32,6 +32,10 @@ patient:
   service:
     url: http://localhost:8082
 
+telegram:
+  service:
+    url: http://localhost:8085
+
 logging:
   level:
     com.beaverteeth.appointment: DEBUG

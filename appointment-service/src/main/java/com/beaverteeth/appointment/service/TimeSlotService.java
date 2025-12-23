@@ -50,7 +50,7 @@ public class TimeSlotService {
 
     public Long getPatientChatId(Long patientId) {
         try {
-            String url = patientServiceUrl + "/api/patients/" + patientId;
+            String url = patientServiceUrl + "/api/patients/" + patientId + "/with-chat";
             ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
 
             if (response.getBody() != null) {
@@ -68,7 +68,6 @@ public class TimeSlotService {
         return null;
     }
 
-
     public List<TimeSlotDTO> getAvailableTimeSlots(TimeSlotRequest request) {
         // Ищем врача по фамилии
         Long doctorId = findDoctorIdByLastName(request.getDoctorLastName());
@@ -77,7 +76,6 @@ public class TimeSlotService {
             return List.of();
         }
 
-        // ПРОВЕРКА ОТПУСКА - ДОБАВИТЬ ЭТУ ПРОВЕРКУ
         if (isDoctorOnVacation(doctorId, request.getDate())) {
             log.info("Врач {} в отпуске на дату {}", doctorId, request.getDate());
             return List.of(); // Возвращаем пустой список слотов
@@ -142,8 +140,6 @@ public class TimeSlotService {
                 continue;
             }
 
-            // ПРАВИЛЬНАЯ проверка: слоты пересекаются только если они действительно перекрываются
-            // 9-11 и 11-13 НЕ пересекаются (11:00 это только граница)
             boolean overlaps = slot.getStartTime().isBefore(appointment.getEndTime()) &&
                     slot.getEndTime().isAfter(appointment.getStartTime());
 

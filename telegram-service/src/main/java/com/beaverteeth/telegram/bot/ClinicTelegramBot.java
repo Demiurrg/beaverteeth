@@ -74,14 +74,13 @@ public class ClinicTelegramBot extends TelegramLongPollingBot {
 
             // Получаем информацию о пользователе
             org.telegram.telegrambots.meta.api.objects.User user = update.getMessage().getFrom();
-            String username = user.getUserName(); // ← это telegramUsername
+            String username = user.getUserName();
 
             log.info("Получено сообщение: chatId={}, username={}, text={}", chatId, username, text);
 
             // Для команды /start проверяем регистрацию
             if (text.equals("/start")) {
-                // Вызываем ТВОЙ метод handleStart с правильными параметрами
-                handleStart(chatId, username);  // ← только chatId и username
+                handleStart(chatId, username);
             } else {
                 handleMessage(chatId, text);
             }
@@ -466,36 +465,62 @@ public class ClinicTelegramBot extends TelegramLongPollingBot {
 
     private void handleConfirmation(Long chatId, UserSession session, boolean confirmed) {
         if (confirmed) {
-            // БЕЗОПАСНО получаем patientId
-            Long patientId = getLongFromSession(session, "patientId");
-            Long doctorId = getLongFromSession(session, "doctorId");
+            // Получаем telegramUsername из сессии
+            String telegramUsername = (String) session.getData().get("telegramUsername");
 
-            String patientName = session.getPatientFullName();
+            if (telegramUsername == null) {
+                sendMessage(chatId, "❌ Ошибка: не найден Telegram username. Пройдите регистрацию.");
+                handleStart(chatId, telegramUsername);
+                return;
+            }
 
-            if (patientId == null || doctorId == null) {
-                sendMessage(chatId, "❌ Ошибка: недостаточно данных для записи.");
+            // Ищем пациента по telegramUsername
+            Map<String, Object> patient = patientApiClient.getPatientByTelegramUsername(telegramUsername);
+
+            if (patient == null) {
+                sendMessage(chatId, "❌ Вы не зарегистрированы в системе. Пожалуйста, пройдите регистрацию.");
+                handleStart(chatId, telegramUsername);
+                return;
+            }
+
+            // Получаем patientId из найденного пациента
+            Long patientId = ((Number) patient.get("id")).longValue();
+            String patientName = (String) patient.get("fullName");
+
+            // Получаем doctorId из сессии
+            Long doctorId = session.getSelectedDoctorId();
+
+            if (doctorId == null) {
+                sendMessage(chatId, "❌ Ошибка: не найден ID врача. Начните запись заново.");
                 showMainMenu(chatId);
                 return;
+            }
+
+            Long patientChatId = (Long) session.getData().get("patientChatId");
+
+            if (patientChatId == null) {
+                patientChatId = chatId;
             }
 
             Map<String, Object> result = appointmentApiClient.createAppointment(
                     doctorId,
                     patientId,
                     session.getSelectedTime(),
-                    "Запись через Telegram бота"
+                    "Запись через Telegram бота",
+                    patientChatId
             );
 
             if (result != null && result.containsKey("error")) {
                 sendMessage(chatId, "❌ Ошибка при создании записи: " + result.get("error"));
             } else if (result != null) {
                 String successMessage = String.format(
-                        "🎉 Запись успешно создана!\n\n" +
+                        "✅ *Запись создана и отправлена на подтверждение!*\n\n" +
                                 "👤 Пациент: %s\n" +
                                 "👨‍⚕️ Врач: %s\n" +
                                 "📅 Дата: %s\n" +
                                 "🕐 Время: %s\n\n" +
-                                "Ждем вас на прием!",
-                        patientName != null ? patientName : "Вы",
+                                "Мы уведомим вас о решении администратора.",
+                        patientName,
                         session.getDoctorLastName(),
                         session.getAppointmentDate().format(DateTimeFormatter.ofPattern("dd.MM.yyyy")),
                         session.getSelectedTime().format(DateTimeFormatter.ofPattern("HH:mm"))
@@ -834,6 +859,7 @@ public class ClinicTelegramBot extends TelegramLongPollingBot {
 
         UserSession session = sessionManager.getSession(chatId);
         session.getData().put("telegramUsername", telegramUsername);
+        session.getData().put("patientChatId", chatId);
 
         if (telegramUsername == null) {
             sendMessage(chatId, "❌ У вас не установлен Telegram username.");
@@ -850,7 +876,6 @@ public class ClinicTelegramBot extends TelegramLongPollingBot {
             session.setState(BotState.MAIN_MENU);
             session.getData().put("patientId", patientId);
             session.getData().put("patientFullName", patient.get("fullName"));
-            session.getData().put("patientChatId", chatId); // Сохраняем в сессии
 
             sessionManager.updateSession(session);
 

@@ -22,7 +22,7 @@ public class TelegramNotificationService {
     private final RestTemplate restTemplate;
     private final TimeSlotService timeSlotService;
 
-    @Value("${telegram.bot.url:http://localhost:8084}")
+    @Value("${telegram.bot.url:http://localhost:8085}")
     private String telegramBotUrl;
 
     public void sendAppointmentConfirmation(Appointment appointment,

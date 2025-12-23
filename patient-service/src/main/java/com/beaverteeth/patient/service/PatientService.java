@@ -67,6 +67,12 @@ public class PatientService {
         log.info("Обновлен telegramChatId для пациента {}: {}", id, telegramChatId);
     }
 
+    public PatientDTO getPatientWithChatId(Long id) {
+        Patient patient = patientRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Пациент не найден с ID: " + id));
+        return convertToDTO(patient);
+    }
+
     public PatientDTO updatePatient(Long id, PatientDTO patientDTO, String modifiedBy) {
         Patient existingPatient = patientRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Пациент не найден с ID: " + id));
