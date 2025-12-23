@@ -1,4 +1,4 @@
-package com.beaverteeth.patient.controller;
+package com.beaverteeth.patient.test;
 
 import com.beaverteeth.patient.model.dto.PatientAuditDto;
 import com.beaverteeth.patient.service.AuditService;

@@ -1,4 +1,4 @@
-package com.beaverteeth.appointment.controller;
+package com.beaverteeth.appointment.test;
 
 import com.beaverteeth.appointment.model.dto.*;
 import com.beaverteeth.appointment.service.AppointmentService;
