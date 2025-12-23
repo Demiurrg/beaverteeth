@@ -37,10 +37,10 @@ public class ExportData {
         @JsonFormat(shape = JsonFormat.Shape.STRING)
         private LocalDateTime createdAt;
 
-        private String lastModifiedBy;
+        private String changedBy;
 
         @JsonFormat(shape = JsonFormat.Shape.STRING)
-        private LocalDateTime lastModifiedAt;
+        private LocalDateTime changedAt;
     }
 
     @Data
@@ -61,10 +61,10 @@ public class ExportData {
         @JsonFormat(shape = JsonFormat.Shape.STRING)
         private LocalDateTime createdAt;
 
-        private String lastModifiedBy;
+        private String changedBy;
 
         @JsonFormat(shape = JsonFormat.Shape.STRING)
-        private LocalDateTime lastModifiedAt;
+        private LocalDateTime changedAt;
     }
 
     @Data
@@ -89,6 +89,6 @@ public class ExportData {
         private LocalDateTime createdAt;
 
         @JsonFormat(shape = JsonFormat.Shape.STRING)
-        private LocalDateTime updatedAt;
+        private LocalDateTime changedAt;
     }
 }

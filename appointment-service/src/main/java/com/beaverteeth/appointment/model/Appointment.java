@@ -47,13 +47,13 @@ public class Appointment extends AuditEntity {
         if (createdAt == null) {
             createdAt = LocalDateTime.now();
         }
-        if (lastModifiedBy == null) {
-            lastModifiedBy = String.valueOf(LocalDateTime.now());
+        if (changedBy == null) {
+            changedBy = String.valueOf(LocalDateTime.now());
         }
     }
 
     @PreUpdate
     protected void onUpdate() {
-        lastModifiedBy = String.valueOf(LocalDateTime.now());
+        changedBy = String.valueOf(LocalDateTime.now());
     }
 }

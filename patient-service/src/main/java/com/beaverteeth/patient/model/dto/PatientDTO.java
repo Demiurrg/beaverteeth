@@ -22,6 +22,6 @@ public class PatientDTO {
     // Аудит-поля
     private String createdBy;
     private LocalDateTime createdAt;
-    private String lastModifiedBy;
-    private LocalDateTime lastModifiedAt;
+    private String changedBy;
+    private LocalDateTime changedAt;
 }

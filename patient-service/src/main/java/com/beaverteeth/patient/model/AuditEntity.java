@@ -22,10 +22,10 @@ public abstract class AuditEntity {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "last_modified_by")
-    private String lastModifiedBy;
+    @Column(name = "changed_by")
+    private String changedBy;
 
     @UpdateTimestamp
-    @Column(name = "last_modified_at")
-    private LocalDateTime lastModifiedAt;
+    @Column(name = "changed_at")
+    private LocalDateTime changedAt;
 }

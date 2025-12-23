@@ -43,7 +43,7 @@ public class PatientService {
         }
 
         Patient patient = modelMapper.map(request, Patient.class);
-        patient.setLastModifiedBy(request.getCreatedBy());
+        patient.setChangedBy(request.getCreatedBy());
 
         Patient savedPatient = patientRepository.save(patient);
 
@@ -107,7 +107,7 @@ public class PatientService {
         // Обновляем поля
         modelMapper.map(patientDTO, existingPatient);
         existingPatient.setId(id);
-        existingPatient.setLastModifiedBy(modifiedBy);
+        existingPatient.setChangedBy(modifiedBy);
 
         Patient updatedPatient = patientRepository.save(existingPatient);
 
@@ -122,7 +122,7 @@ public class PatientService {
                 .orElseThrow(() -> new EntityNotFoundException("Пациент не найден с ID: " + id));
 
         patient.setIsActive(false);
-        patient.setLastModifiedBy(modifiedBy);
+        patient.setChangedBy(modifiedBy);
 
         patientRepository.save(patient);
 

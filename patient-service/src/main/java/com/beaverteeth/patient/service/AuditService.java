@@ -44,8 +44,8 @@ public class AuditService {
     // Для обратной совместимости
     @Async
     public void logPatientChange(Patient patient, String action) {
-        String changedBy = patient.getLastModifiedBy() != null ?
-                patient.getLastModifiedBy() :
+        String changedBy = patient.getChangedBy() != null ?
+                patient.getChangedBy() :
                 patient.getCreatedBy();
 
         String description = getDefaultDescription(action, patient.getFullName(), patient.getPhone());

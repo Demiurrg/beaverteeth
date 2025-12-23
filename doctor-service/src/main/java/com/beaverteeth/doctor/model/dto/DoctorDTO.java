@@ -30,8 +30,8 @@ public class DoctorDTO {
     private Boolean isActive;
     private String createdBy;
     private LocalDateTime createdAt;
-    private String lastModifiedBy;
-    private LocalDateTime lastModifiedAt;
+    private String changedBy;
+    private LocalDateTime changedAt;
 
     @JsonGetter("specialty")
     public String getSpecialtyName() {

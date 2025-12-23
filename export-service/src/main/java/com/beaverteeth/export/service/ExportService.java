@@ -181,7 +181,7 @@ public class ExportService {
                 .status((String) map.get("status"))
                 .notes((String) map.get("notes"))
                 .createdAt(LocalDateTime.parse((String) map.get("createdAt")))
-                .updatedAt(LocalDateTime.parse((String) map.get("updatedAt")))
+                .changedAt(LocalDateTime.parse((String) map.get("updatedAt")))
                 .build();
     }
 
